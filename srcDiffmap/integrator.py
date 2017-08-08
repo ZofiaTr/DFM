@@ -9,6 +9,8 @@ import sampler
 from simtk import openmm, unit
 import Averages
 
+import openmmtools
+
 
 class Integrator():
 
@@ -51,7 +53,10 @@ class Integrator():
          self.kineticTemperature.addSample(kinTemp)
          print self.kineticTemperature.getAverage()
 
-
+         # Create a BAOAB integrator
+         self.langevin_integrator = openmmtools.integrators.LangevinIntegrator(temperature=self.temperature, collision_rate=self.gamma, timestep=self.dt, splitting='V R O R V')
+         # Create a Context for integration
+         self.context = openmm.Context(self.model.system, self.langevin_integrator)
 
     def run_langevin(self,n_steps):
         """Simulate n_steps of Langevin dynamics using BAOAB"""
@@ -89,6 +94,49 @@ class Integrator():
 
         return xs, vs
 
+    def run_openmm_langevin(self, n_steps, save_interval=1):
+        """Simulate n_steps of Langevin dynamics using openmmtools BAOAB
+
+        Parameters
+        ----------
+        n_steps : int
+            The number of MD steps to run
+        save_interval : int, optional, default=1
+            The interval at which steps are saved
+
+        Returns
+        -------
+        xyz : list of (natoms,3) unitless positions
+            xyz[n] is the nth frame from the trajectory in units of self.model.x_units,
+            saved with interval save_interval
+
+        """
+        if n_steps % save_interval != 0:
+            raise Exception("n_steps (%d) should be an integral multiple of save_interval (%d)" % (n_steps, save_interval))
+
+        # Intialize positions and velocities
+        self.context.setPositions(self.x0)
+        self.context.setVelocities(self.v0)
+
+        # Store trajectory
+        xyz = list()
+
+        # Run n_steps of dynamics
+        for iteration in range(int(n_steps / save_interval)):
+            self.langevin_integrator.step(save_interval)
+            state = self.context.getState(getPositions=True, getVelocities=True)
+            x = state.getPositions(asNumpy=True)
+            v = state.getVelocities(asNumpy=True)
+            # Append to trajectory
+            xyz.append(x / self.model.x_unit)
+
+        # Save final state
+        self.xEnd = x
+        self.vEnd = v
+
+        # Retrieve positions and velocities
+
+        return xyz
 
     def run_EFTAD(self, n_steps):
         """Simulate n_steps of EFTAD/TAMD with fixed CV's discretized by BAOAB scheme

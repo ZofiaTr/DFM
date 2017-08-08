@@ -154,16 +154,15 @@ class Sampler():
 
                 #------- simulate Langevin
 
-                Xrep=[self.model.positions for i in range(0,nrRep*nrSteps)]
+                xyz = list()
 
                 for rep in range(0, nrRep):
 
-                    self.integrator.x0=initialPositions[rep]
-                    xs,vx=self.integrator.run_langevin(nrSteps)
-                    initialPositions[rep]=xs[-1]
+                    # TODO: Also track initial and final velocities
 
-                    for n in range(0,nrSteps):
-                        Xrep[rep*nrSteps + n]=xs[n]
+                    self.integrator.x0=initialPositions[rep]
+                    xyz += self.integrator.run_openmm_langevin(nrSteps, save_interval=self.modNr)
+                    initialPositions[rep] = self.integrator.xEnd
 
                 #for n in range(0,nrRep):
                 #    Xit[it* (nrRep*nrSteps) + n]=Xrep[n]
@@ -175,7 +174,6 @@ class Sampler():
                 #tmpselftraj=np.copy(self.sampled_trajectory)
                 #self.sampled_trajectory=np.concatenate((tmpselftraj,np.copy(Xrep[-1].value_in_unit(self.model.x_unit))))
 
-                xyz=[x.value_in_unit(self.model.x_unit) for x in Xrep[::self.modNr]]
                 self.trajSave=md.Trajectory(xyz, self.topology)
                 print 'Saving traj to file'
                 self.trajSave.save(self.savingFolder+self.algorithmName+'_traj_'+repr(it)+'.h5')
