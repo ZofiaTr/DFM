@@ -27,3 +27,7 @@ env:
     - python=3.6  CONDA_PY=36
 #  global:
 #    - OPENMM_CPU_THREADS="1" # only use one CPU thread for determinism
+
+notifications:
+  email: false
+  
