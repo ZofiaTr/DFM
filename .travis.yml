@@ -9,7 +9,7 @@ install:
   - conda config --set always_yes yes --set changeps1 no
   - conda update -q conda
   - conda info -a
-  - conda create -n test python=$CONDA_PY numpy scipy scikit-learn openmm mdtraj -c omnia -c conda-forge
+  - conda create -n test python=$python numpy scipy scikit-learn openmm mdtraj -c omnia -c conda-forge
   - source activate test
   - conda list
   - pip install rmsd
@@ -30,4 +30,3 @@ env:
 
 notifications:
   email: false
-  
