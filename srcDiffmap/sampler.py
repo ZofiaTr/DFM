@@ -10,7 +10,6 @@ The rest of the functions is in progress or not working.
 """
 
 import numpy as np
-import matplotlib.pyplot as plt
 
 import diffusionmap as dm
 
