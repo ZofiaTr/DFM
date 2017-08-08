@@ -27,8 +27,21 @@ print mdl.modelname
 print('System has %d particle(s)' % mdl.system.getNumParticles())
 #systemName='Ala2Pept'
 
+# Parse command-line arguments
+import argparse
+
+parser = argparse.ArgumentParser(description='Diffusion map accelerated sampling.')
+parser.add_argument('--algorithm', dest='algoFlag', type=str, default='0',
+                    help='algorithm name or number to use (default: 0)')
+parser.add_argument('--iterations', dest='niterations', type=int, default=10000,
+                    help='number of iterations to run (default: 10000)')
+parser.add_argument('--replicas', dest='nreplicas', type=int, default=10,
+                    help='number of replicas to use per iteration (default: 10)')
+
+args = parser.parse_args()
+
 #read imput parameters to choose the algorithm
-algoFlag=sys.argv[1]
+algoFlag=args.algoFlag
 
 if(algoFlag=='std' or algoFlag=='0'):
     iAlgo=0
@@ -86,8 +99,8 @@ general_sampler=sampler.Sampler(model=mdl, integrator=integrator, algorithm=iAlg
 
 # nrSteps is number of steps for each nrRep , and iterate the algo nrIterations times - total simulation time is nrSteps x nrIterations
 nrSteps=1000
-nrIterations=100000
-nrRep=10
+nrIterations=args.niterations
+nrRep=args.nreplicas
 
 print('Simulation time: '+repr(nrSteps*nrIterations*dt.value_in_unit(unit.femtosecond))+' '+str(unit.femtosecond)+'\n ***** \n' )
 
