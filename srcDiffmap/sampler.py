@@ -174,7 +174,7 @@ class Sampler():
                 #self.sampled_trajectory=np.concatenate((tmpselftraj,np.copy(Xrep[-1].value_in_unit(self.model.x_unit))))
 
                 self.trajSave=md.Trajectory(xyz, self.topology)
-                print 'Saving traj to file'
+                print('Saving traj to file')
                 self.trajSave.save(self.savingFolder+self.algorithmName+'_traj_'+repr(it)+'.h5')
                 #if (nrSteps*nrIterations*nrRep)> 10**6:
             #    self.sampled_trajectory=Xrep[::modNr**2]
@@ -231,7 +231,7 @@ class Sampler():
                 xyz=[x.value_in_unit(self.model.x_unit) for x in Xrep[::self.modNr]]
                 self.trajSave=md.Trajectory(xyz, self.topology)
 
-                print 'Saving traj to file'
+                print('Saving traj to file')
                 self.trajSave.save(self.savingFolder+self.algorithmName+'_traj_'+repr(it)+'.h5')
 
 
@@ -262,7 +262,7 @@ class Sampler():
 
                 if(np.remainder(it, writingEveryNSteps)==0):
                     print('Iteration '+ repr(it))
-                    print ('Kinetic Temperature is '+str(self.integrator.kineticTemperature.getAverage()))
+                    print('Kinetic Temperature is '+str(self.integrator.kineticTemperature.getAverage()))
 
 
                     if(it>0):
@@ -369,7 +369,7 @@ class Sampler():
                 xyz_eftad=[x.value_in_unit(self.model.x_unit) for x in xEftad[::self.modNr]]
                 trajEftad=md.Trajectory(xyz_eftad, self.topology)
 
-                print 'Saving traj to file'
+                print('Saving traj to file')
                 self.trajSave = self.trajSave[::self.modNr]
                 self.trajSave.save(self.savingFolder+self.algorithmName+'_traj_'+repr(it)+'.h5')
                 trajEftad.save(self.savingFolder+self.algorithmName+'_trajTAMD_'+repr(it)+'.h5')
@@ -464,7 +464,7 @@ class Sampler():
                 xyz=[x.value_in_unit(self.model.x_unit) for x in Xrep[::self.modNr]]
                 self.trajSave=md.Trajectory(xyz, self.topology)
 
-                print 'Saving traj to file'
+                print('Saving traj to file')
                 self.trajSave.save(self.savingFolder+self.algorithmName+'_traj_'+repr(it)+'.h5')
 
 
@@ -575,7 +575,7 @@ class Sampler():
                 xyz=[x.value_in_unit(self.model.x_unit) for x in Xrep[::self.modNr]]
                 self.trajSave=md.Trajectory(xyz, self.topology)
 
-                print 'Saving traj to file'
+                print('Saving traj to file')
                 self.trajSave.save(self.savingFolder+self.algorithmName+'_traj_'+repr(it)+'.h5')
 
 ######----------------- pure kin en from force ---------------------------------
@@ -630,7 +630,7 @@ class Sampler():
                 xyz=[x.value_in_unit(self.model.x_unit) for x in Xrep[::self.modNr]]
                 self.trajSave=md.Trajectory(xyz, self.topology)
 
-                print 'Saving traj to file'
+                print('Saving traj to file')
                 self.trajSave.save(self.savingFolder+self.algorithmName+'_traj_'+repr(it)+'.h5')
 
 
@@ -685,7 +685,7 @@ class Sampler():
 
                 xyz=[x.value_in_unit(self.model.x_unit) for x in Xrep[::self.modNr]]
                 self.trajSave=md.Trajectory(xyz, self.topology)
-                print 'Saving traj to file'
+                print('Saving traj to file')
                 self.trajSave.save(self.savingFolder+self.algorithmName+'_traj_'+repr(it)+'.h5')
 
 
