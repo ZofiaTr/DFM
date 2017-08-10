@@ -16,6 +16,7 @@ import sklearn.neighbors as neigh_search
 from sklearn.neighbors import NearestNeighbors
 import scipy.sparse as sps
 
+import mdtraj as md
 
 from numpy import linalg as LA
 
@@ -47,7 +48,32 @@ def compute_kernel(X, epsilon):
     cutoff = np.sqrt(2*epsilon);
 
     #calling nearest neighbor search class: returning a (sparse) distance matrix
-    albero = neigh_search.radius_neighbors_graph(X, radius = cutoff,mode='distance', p=2, include_self=None)
+    albero = neigh_search.radius_neighbors_graph(X, radius = cutoff, mode='distance', p=2, include_self=None)
+
+    # computing the diffusion kernel value at the non zero matrix entries
+    diffusion_kernel = np.exp(-(np.array(albero.data)**2)/(epsilon))
+
+    # build sparse matrix for diffusion kernel
+    kernel = sps.csr_matrix((diffusion_kernel, albero.indices, albero.indptr), dtype = float, shape=(m,m))
+    kernel = kernel + sps.identity(m)  # accounting for diagonal elements
+
+    return kernel;
+
+def compute_kernel_mdtraj(traj, epsilon):
+    """UNDER CONSTRUCTION: DOES NOT WORK"""
+
+    #check the format of traj - if there are more particles
+
+    # Number of frames in trajectory
+    m = len(traj)
+
+    # Compute cutoff for neighbor search
+    cutoff = np.sqrt(2*epsilon);
+
+    # Calling nearest neighbor search class: returning a (sparse) distance matrix
+    albero = neigh_search.radius_neighbors_graph(traj.xyz, radius=cutoff, mode='pyfunc', metric_params={'func' : md.rmsd}, include_self=None)
+
+    md.rmsd(X[i], X[j])
 
     # computing the diffusion kernel value at the non zero matrix entries
     diffusion_kernel = np.exp(-(np.array(albero.data)**2)/(epsilon))

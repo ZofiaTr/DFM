@@ -319,7 +319,7 @@ class Integrator():
 
 ################# the following functions are not finished -  work in progress
 
-    def run_modifKinEn_Langevin(self, n_steps, dataLandmarks=None, Vlandmarks=None, deriv_v=None):
+    def run_modifKinEn_Langevin(self, n_steps, dataLandmarks=None, Vlandmarks=None, deriv_v=None, save_interval=1):
             """Simulate n_steps of modified kintic energy Langevin with the kinetic energy perturbed by an adaptively computed CV
 
             :param n_steps:
@@ -331,8 +331,7 @@ class Integrator():
 
             #Number of CV=1
 
-            xs = [self.x0]
-            vs = [self.x0]
+            xyz = list()
 
             x = self.x0
             v = self.v0
@@ -352,25 +351,24 @@ class Integrator():
             dKfct = self.diffKineticEnergyFunction
             #Kfct = self. kineticEnergyFunction
 
-            for _ in range(n_steps):
+            for step in range(n_steps):
 
                 v = v + ((0.5*self.dt ) * f * self.invmasses)
                 #dK=p/m - dK=v
-                p = v * self.masses
-                p = p / (self.model.velocity_unit*self.model.mass_unit)
-                dK = dKfct(p)
-                dK = dK * self.invmasses *(self.model.velocity_unit*self.model.mass_unit)
-                x = x + (self.dt  * dK )
+                #p = v * self.masses
+                #p = p / (self.model.velocity_unit*self.model.mass_unit)
+                dK = dKfct(v / self.model.velocity_unit) * self.model.velocity_unit
+                x = x + (self.dt  * dK)
 
                 f=self.force_fxn(x)
                 v = v + ((0.5*self.dt ) * f * self.invmasses)
 
                 for _ in range(nrSubSteps):
 
-                    p = v * self.masses
-                    p = p / (self.model.velocity_unit*self.model.mass_unit)
-                    dK = dKfct(p)
-                    dK = dK * self.invmasses *(self.model.velocity_unit*self.model.mass_unit)
+                    #p = v * self.masses
+                    #p = p / (self.model.velocity_unit*self.model.mass_unit)
+                    dK = dKfct(v / self.model.velocity_unit) * self.model.velocity_unit
+                    #dK = dK * self.invmasses *(self.model.velocity_unit*self.model.mass_unit)
 
                     v = v - self.gamma * dK * dtInner  +  np.sqrt(2.0 * self.gamma *self.kT* dtInner * self.invmasses) *np.random.randn(*x.shape)
 
@@ -379,13 +377,16 @@ class Integrator():
                 #theta=theta*self.model.x_unit
                 #diffTheta=diffTheta.reshape(x.shape)*self.model.x_unit
 
-                xs.append(x)
-                vs.append(v)
+                # Append to trajectory
+                xyz.append(x / self.model.x_unit)
+                # Store kinetic temperature
+                kinTemp = self.computeKineticTemperature(v)
+                self.kineticTemperature.addSample(kinTemp)
 
             self.xEnd=x
             self.vEnd=v
 
-            return xs, vs
+            return xyz
 
             #################
 
