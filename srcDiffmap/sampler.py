@@ -160,6 +160,7 @@ class Sampler():
                     # TODO: Also track initial and final velocities
 
                     self.integrator.x0=initialPositions[rep]
+                    #xyz += self.integrator.run_langevin(nrSteps, save_interval=self.modNr) # local Python
                     xyz += self.integrator.run_openmm_langevin(nrSteps, save_interval=self.modNr)
                     initialPositions[rep] = self.integrator.xEnd
 

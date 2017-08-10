@@ -58,11 +58,32 @@ class Integrator():
          # Create a Context for integration
          self.context = openmm.Context(self.model.system, self.langevin_integrator)
 
-    def run_langevin(self,n_steps):
-        """Simulate n_steps of Langevin dynamics using BAOAB"""
+    def run_langevin(self, n_steps, save_interval=1):
+        """Simulate n_steps of Langevin dynamics using Python implementation of BAOAB
 
-        xs = [self.x0]
-        vs = [self.x0]
+        Parameters
+        ----------
+        n_steps : int
+            The number of MD steps to run
+        save_interval : int, optional, default=1
+            The interval at which steps are saved
+
+        Returns
+        -------
+        xyz : list of (natoms,3) unitless positions
+            xyz[n] is the nth frame from the trajectory in units of self.model.x_units,
+            saved with interval save_interval
+
+        TODO
+        ----
+        * Handle box_vectors so that we can eventually run periodic systems
+
+        """
+        if n_steps % save_interval != 0:
+            raise Exception("n_steps (%d) should be an integral multiple of save_interval (%d)" % (n_steps, save_interval))
+
+        # Store trajectory
+        xyz = list()
 
         x = self.x0
         v = self.v0
@@ -72,7 +93,7 @@ class Integrator():
 
         f=self.force_fxn(x)
 
-        for _ in range(n_steps):
+        for step in range(n_steps):
             v = v + ((0.5*self.dt ) * f/ self.masses)
             x = x + ((0.5*self.dt ) * v)
             v = (a * v) + b * np.random.randn(*x.shape) * np.sqrt(self.kT / self.masses)
@@ -80,19 +101,17 @@ class Integrator():
             f=self.force_fxn(x)
             v = v + ((0.5*self.dt ) * f / self.masses)
 
-            xs.append(x)
-            vs.append(v)
+            if (step+1) % save_interval == 0:
+                xyz.append(x / self.model.x_unit)
+                kinTemp = self.computeKineticTemperature(v)
+                self.kineticTemperature.addSample(kinTemp)
 
-
-            kinTemp = self.computeKineticTemperature(v)
-
-            self.kineticTemperature.addSample(kinTemp)
             #print self.kineticTemperature.getAverage()
 
         self.xEnd=x
         self.vEnd=v
 
-        return xs, vs
+        return xyz
 
     def run_openmm_langevin(self, n_steps, save_interval=1):
         """Simulate n_steps of Langevin dynamics using openmmtools BAOAB
@@ -110,6 +129,10 @@ class Integrator():
             xyz[n] is the nth frame from the trajectory in units of self.model.x_units,
             saved with interval save_interval
 
+        TODO
+        ----
+        * Handle box_vectors so that we can eventually run periodic systems
+
         """
         if n_steps % save_interval != 0:
             raise Exception("n_steps (%d) should be an integral multiple of save_interval (%d)" % (n_steps, save_interval))
@@ -124,17 +147,18 @@ class Integrator():
         # Run n_steps of dynamics
         for iteration in range(int(n_steps / save_interval)):
             self.langevin_integrator.step(save_interval)
-            state = self.context.getState(getPositions=True, getVelocities=True)
+            state = self.context.getState(getPositions=True, getVelocities=True, getEnergy=True)
             x = state.getPositions(asNumpy=True)
             v = state.getVelocities(asNumpy=True)
             # Append to trajectory
             xyz.append(x / self.model.x_unit)
+            # Store kinetic temperature
+            kinTemp = state.getKineticEnergy()*2.0/self.ndof/ (unit.BOLTZMANN_CONSTANT_kB * unit.AVOGADRO_CONSTANT_NA)
+            self.kineticTemperature.addSample(kinTemp)
 
         # Save final state
         self.xEnd = x
         self.vEnd = v
-
-        # Retrieve positions and velocities
 
         return xyz
 

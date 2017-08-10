@@ -67,7 +67,7 @@ kT = kB * temperature
 
 
 gamma = 1.0 / unit.picosecond
-dt = 4.0 * unit.femtosecond
+dt = 2.0 * unit.femtosecond
 
 TemperatureTAMDFactor=30.0
 massScale=50.0
@@ -99,13 +99,14 @@ general_sampler=sampler.Sampler(model=mdl, integrator=integrator, algorithm=iAlg
 
 # nrSteps is number of steps for each nrRep , and iterate the algo nrIterations times - total simulation time is nrSteps x nrIterations
 nrSteps=1000
+nrEquilSteps = 50000
 nrIterations=args.niterations
 nrRep=args.nreplicas
 
 print('Simulation time: '+repr(nrSteps*nrIterations*dt.value_in_unit(unit.femtosecond))+' '+str(unit.femtosecond)+'\n ***** \n' )
 
-print('Equilibration\n')
-general_sampler.run(1000, 1, 1)
+print('Equilibration: 'repr(nrEquilSteps*nrIterations*dt.value_in_unit(unit.femtosecond))+' '+str(unit.femtosecond)+'\n ***** \n' )
+general_sampler.run(nrEquilSteps, 1, 1)
 general_sampler.resetInitialConditions()
 # run the simulation
 print('Starting simulation\n')
