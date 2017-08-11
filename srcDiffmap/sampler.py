@@ -160,11 +160,9 @@ class Sampler():
                     # TODO: Also track initial and final velocities
 
                     self.integrator.x0=initialPositions[rep]
+                    #xyz += self.integrator.run_langevin(nrSteps, save_interval=self.modNr) # local Python
                     xyz += self.integrator.run_openmm_langevin(nrSteps, save_interval=self.modNr)
                     initialPositions[rep] = self.integrator.xEnd
-
-                #for n in range(0,nrRep):
-                #    Xit[it* (nrRep*nrSteps) + n]=Xrep[n]
 
                 if(it>0):
                     tavEnd=time.time()
@@ -255,8 +253,6 @@ class Sampler():
 
             for it in range(0,nrIterations):
 
-                Xrep=[self.model.positions for i in range(nrRep*nrSteps)]
-
                 if(it>0):
                     tav0=time.time()
 
@@ -270,22 +266,18 @@ class Sampler():
                         print(time.strftime("Time left %H:%M:%S", time.gmtime(t_left)))
 
                 #------- simulate Langevin
+                xyz = list()
                 for rep in range(0, nrRep):
 
                     self.integrator.x0=initialPositions[rep]
-                    xs,vx=self.integrator.run_langevin(nrSteps)
-                    initialPositions[rep]=xs[-1]
-
-
-                    for n in range(0,nrSteps):
-                        Xrep[rep*nrSteps + n]=xs[n]
+                    xyz += self.integrator.run_openmm_langevin(nrSteps, save_interval=self.modNr)
+                    initialPositions[rep] = xyz[-1]
 
                  #-----save trajectory from the current Iteration
                 #for n in range(0,nrRep*nrSteps):
                 #    Xit[it* (nrRep*nrSteps) + n]=Xrep[n]
 
                 # creat md traj object
-                xyz=[x.value_in_unit(self.model.x_unit) for x in Xrep[::self.modNr]]
                 self.trajSave=md.Trajectory(xyz, self.topology)
                 #------ rmsd ------------------------------
 
@@ -304,6 +296,7 @@ class Sampler():
                 #------ compute CV ------------------------------
 
                 landmarks, V1 = dimension_reduction(traj, self.epsilon, self.numberOfLandmarks, self.model, self.T, self.method)
+                #landmarks, V1 = dimension_reduction(self.trajSave, self.epsilon, self.numberOfLandmarks, self.model, self.T, self.method) # EXPERIMENTAL
 
                 # change the epsilon if there is not enough of landmarks
                 escape=0
@@ -354,9 +347,9 @@ class Sampler():
                 else:
 
                     self.integrator.x0=xEftad[-1]
-                xsdecorr,vxdecorr=self.integrator.run_langevin(self.nrDecorrSteps)
+                xyz = self.integrator.run_openmm_langevin(self.nrDecorrSteps, save_interval=self.nrDecorrSteps)
 
-                initialPositions=[xsdecorr[-1] for rep in range(0,nrRep)]
+                initialPositions=[xyz[-1] for rep in range(0,nrRep)]
 
 
                 if(it>0):
@@ -378,7 +371,8 @@ class Sampler():
 
 
     def runDiffmapCV_Eftad_only(self, nrSteps, nrIterations, nrRep):
-        # use the eftad with CV obtained from diffusion map as for sampling
+            """WARNING: run_langevin API has changed, so this currently does not work."""
+            # use the eftad with CV obtained from diffusion map as for sampling
 
             #reset time
             self.timeAv.clear()
@@ -409,6 +403,7 @@ class Sampler():
 
                     self.integrator.x0=initialPositions[rep]
                     if it==0:
+                        # WARNING: run_langevin now returns xyz
                         xs,vx=self.integrator.run_langevin(nrSteps)
                     else:
                         xs,vx=self.integrator.run_EFTAD_adaptive(nrStepsEftad,  dataLM, VLM, v)
@@ -487,8 +482,6 @@ class Sampler():
 
             for it in range(0,nrIterations):
 
-                Xrep=[self.model.positions for i in range(nrRep*nrSteps)]
-
                 if(it>0):
                     tav0=time.time()
 
@@ -500,30 +493,24 @@ class Sampler():
                         print(time.strftime("Time left %H:%M:%S", time.gmtime(t_left)))
 
                 #------- simulate Langevin
+                xyz = list()
+
                 for rep in range(0, nrRep):
 
                     self.integrator.x0=initialPositions[rep]
                     if it==0:
-                        xs,vx=self.integrator.run_langevin(nrSteps)
+                        xyz += self.integrator.run_openmm_langevin(nrSteps, save_interval=self.modNr)
                     else:
-                        xs,vx=self.integrator.run_modifKinEn_Langevin(nrSteps, dataLM, VLM, v)
-                    initialPositions[rep]=xs[-1]
-
-                    for n in range(0,nrSteps):
-                        Xrep[rep*nrSteps + n]=xs[n]
+                        xyz += self.integrator.run_modifKinEn_Langevin(nrSteps, dataLM, VLM, v, save_interval=self.modNr)
+                    initialPositions[rep] = xyz[-1]
 
                  #-----save trajectory from the current Iteration
                 #for n in range(0,nrRep*nrSteps):
                 #    Xit[it* (nrRep*nrSteps) + n]=Xrep[n]
 
-                #------ rmsd ------------------------------
-                #Y=Xrep[::self.modNr]
-                Y=min_rmsd(Xrep[::self.modNr])
-                Y=Y*self.integrator.model.x_unit
-
                 #------ reshape data ------------------------------
 
-                traj=reshapeData(self.integrator.model, Y)
+                traj=reshapeData(self.integrator.model, xyz)
 
                 #------ compute CV ------------------------------
 
@@ -540,9 +527,9 @@ class Sampler():
                     else:
                         escape=1
 
-
-                for nL in range(0, self.numberOfLandmarks):
-                    self.landmarkedStates[it*self.numberOfLandmarks+nL]=Xit[landmarks[nL]]
+                # WARNING: This won't work at the moment because we eliminated Xit
+                #for nL in range(0, self.numberOfLandmarks):
+                #    self.landmarkedStates[it*self.numberOfLandmarks+nL]=Xit[landmarks[nL]]
 
 
 
@@ -572,7 +559,6 @@ class Sampler():
                 tavEnd=time.time()
                 self.timeAv.addSample(tavEnd-tav0)
 
-                xyz=[x.value_in_unit(self.model.x_unit) for x in Xrep[::self.modNr]]
                 self.trajSave=md.Trajectory(xyz, self.topology)
 
                 print('Saving traj to file')
@@ -591,7 +577,6 @@ class Sampler():
 
 
             initialPositions=[self.integrator.x0 for rep in range(0,nrRep)]
-            Xit=[self.integrator.x0 for i in range(nrIterations*nrRep*nrSteps)]
 
             ##############################
 
@@ -609,25 +594,18 @@ class Sampler():
 
                 #------- simulate Langevin
 
-                Xrep=[self.model.positions for i in range(0,nrRep*nrSteps)]
+                xyz = list()
 
                 for rep in range(0, nrRep):
 
                     self.integrator.x0=initialPositions[rep]
-                    xs,vx=self.integrator.run_modifKinEn_Langevin(nrSteps)
-                    initialPositions[rep]=xs[-1]
-
-                    for n in range(0,nrSteps):
-                        Xrep[rep*nrSteps + n]=xs[n]
-
-                for n in range(0,nrRep*nrSteps):
-                    Xit[it* (nrRep*nrSteps) + n]=Xrep[n]
+                    xyz += self.integrator.run_modifKinEn_Langevin(nrSteps, save_interval=self.modNr)
+                    initialPositions[rep] = xyz[-1]
 
                 if(it>0):
                     tavEnd=time.time()
                     self.timeAv.addSample(tavEnd-tav0)
 
-                xyz=[x.value_in_unit(self.model.x_unit) for x in Xrep[::self.modNr]]
                 self.trajSave=md.Trajectory(xyz, self.topology)
 
                 print('Saving traj to file')
@@ -662,16 +640,12 @@ class Sampler():
 
                 #------- simulate Langevin
 
-                Xrep=[self.model.positions for i in range(0,nrRep*nrSteps)]
-
+                xyz = list()
                 for rep in range(0, nrRep):
 
                     self.integrator.x0=initialPositions[rep]
-                    xs,vx=self.integrator.run_modifKinEn_Langevin(nrSteps)
-                    initialPositions[rep]=xs[-1]
-
-                    for n in range(0,nrSteps):
-                        Xrep[rep*nrSteps + n]=xs[n]
+                    xyz += self.integrator.run_modifKinEn_Langevin(nrSteps, save_interval=self.modNr)
+                    initialPositions[rep] = xyz[-1]
 
                 #for n in range(0,nrRep):
                 #    Xit[it* (nrRep*nrSteps) + n]=Xrep[n]
@@ -683,7 +657,6 @@ class Sampler():
                 #tmpselftraj=np.copy(self.sampled_trajectory)
                 #self.sampled_trajectory=np.concatenate((tmpselftraj,np.copy(Xrep[-1].value_in_unit(self.model.x_unit))))
 
-                xyz=[x.value_in_unit(self.model.x_unit) for x in Xrep[::self.modNr]]
                 self.trajSave=md.Trajectory(xyz, self.topology)
                 print('Saving traj to file')
                 self.trajSave.save(self.savingFolder+self.algorithmName+'_traj_'+repr(it)+'.h5')
@@ -736,7 +709,10 @@ def dimension_reduction(tr, eps, numberOfLandmarks, model, T, method):
             q=q/np.sum(q)
 
         else:
-            kernelDiff=dm.compute_kernel(tr, eps)
+            if isinstance(tr, md.Trajectory):
+                kernelDiff=dm.compute_kernel_mdtraj(tr, eps)
+            else:
+                kernelDiff=dm.compute_kernel(tr, eps)
             P=dm.compute_P(kernelDiff, tr)
             q=kernelDiff.sum(axis=1)
 
