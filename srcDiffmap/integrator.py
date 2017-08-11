@@ -51,7 +51,7 @@ class Integrator():
          kinTemp = self.computeKineticTemperature(self.v0)
          self.kineticTemperature=Averages.Average(kinTemp)
          self.kineticTemperature.addSample(kinTemp)
-         print self.kineticTemperature.getAverage()
+         print(self.kineticTemperature.getAverage())
 
          # Create a BAOAB integrator
          self.langevin_integrator = openmmtools.integrators.LangevinIntegrator(temperature=self.temperature, collision_rate=self.gamma, timestep=self.dt, splitting='V R O R V')

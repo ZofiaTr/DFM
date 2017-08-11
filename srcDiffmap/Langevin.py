@@ -144,8 +144,8 @@ class Langevin:
             xs[0,:] = self.x0
             ps[0,:] = self.p0
         except:
-            print 'Dimension of input arguments does not match'
-            print self.x0, self.p0
+            print('Dimension of input arguments does not match')
+            print(self.x0, self.p0)
 
 
 
@@ -249,7 +249,7 @@ class Langevin:
 
 
         except:
-            print 'In simulate_eftad: Dimension of input arguments does not match'
+            print('In simulate_eftad: Dimension of input arguments does not match')
             #print self.x0, self.p0
 
 
@@ -389,7 +389,7 @@ class Langevin:
 
 
         except:
-            print 'In simulate_eftad: Dimension of input arguments does not match'
+            print('In simulate_eftad: Dimension of input arguments does not match')
             #print self.x0, self.p0
 
 
@@ -561,7 +561,7 @@ class Langevin:
 
 
         except:
-            print 'In simulate_eftad kin en: Dimension of input arguments does not match'
+            print('In simulate_eftad kin en: Dimension of input arguments does not match')
             #print self.x0, self.p0
 
 

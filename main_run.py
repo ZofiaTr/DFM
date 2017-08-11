@@ -22,8 +22,8 @@ import model
 #create model defined in class model
 mdl=model.Model()
 
-print mdl.x_unit
-print mdl.modelname
+print(mdl.x_unit)
+print(mdl.modelname)
 print('System has %d particle(s)' % mdl.system.getNumParticles())
 #systemName='Ala2Pept'
 
@@ -75,7 +75,7 @@ massScale=50.0
 gammaScale=100.0
 kappaScale=1000.0
 
-print ("TemperatureTAMDFactor = " + repr(TemperatureTAMDFactor))
+print("TemperatureTAMDFactor = " + repr(TemperatureTAMDFactor))
 temperatureAlpha= (T*TemperatureTAMDFactor)* unit.kelvin
 
 print('Gamma is '+repr(gamma))
