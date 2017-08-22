@@ -340,8 +340,8 @@ class Integrator():
             #a = np.exp(-self.gamma * (self.dt))
             #b = np.sqrt(1 - np.exp(-2 * self.gamma * (self.dt)))
 
-            nrSubSteps = 10
-            dtInner=self.dt/nrSubSteps
+            nrSubSteps = 1
+            dtInner=self.dt/float(nrSubSteps)
 
 
             cke=1.0
@@ -354,28 +354,19 @@ class Integrator():
             for step in range(n_steps):
 
                 v = v + ((0.5*self.dt ) * f * self.invmasses)
-                #dK=p/m - dK=v
-                #p = v * self.masses
-                #p = p / (self.model.velocity_unit*self.model.mass_unit)
                 dK = dKfct(v / self.model.velocity_unit) * self.model.velocity_unit
+
                 x = x + (self.dt  * dK)
+                
 
                 f=self.force_fxn(x)
                 v = v + ((0.5*self.dt ) * f * self.invmasses)
 
                 for _ in range(nrSubSteps):
 
-                    #p = v * self.masses
-                    #p = p / (self.model.velocity_unit*self.model.mass_unit)
                     dK = dKfct(v / self.model.velocity_unit) * self.model.velocity_unit
-                    #dK = dK * self.invmasses *(self.model.velocity_unit*self.model.mass_unit)
 
                     v = v - self.gamma * dK * dtInner  +  np.sqrt(2.0 * self.gamma *self.kT* dtInner * self.invmasses) *np.random.randn(*x.shape)
-
-
-                #theta, diffTheta=aprx.linApproxPsi(x, dataLandmarks, Vlandmarks, deriv_v)
-                #theta=theta*self.model.x_unit
-                #diffTheta=diffTheta.reshape(x.shape)*self.model.x_unit
 
                 # Append to trajectory
                 xyz.append(x / self.model.x_unit)
@@ -489,5 +480,9 @@ class Integrator():
 
     def diffKineticEnergyFunction(self, p):
 
+            #unitless
             powerKinEn=2.0
-            return np.sign(p)*np.abs(p)**(powerKinEn-1.0)/ (self.masses.value_in_unit(self.model.mass_unit) )
+            DkinEn = p /  (self.masses.value_in_unit(self.model.mass_unit) )
+            #np.sign(p)*np.abs(p)**(powerKinEn-1.0)/ (self.masses.value_in_unit(self.model.mass_unit) )
+
+            return DkinEn

@@ -622,7 +622,6 @@ class Sampler():
             print('replicated modified kinetic energy dynamics with '+repr(nrRep)+' replicas')
 
             initialPositions=[self.integrator.x0 for rep in range(0,nrRep)]
-            #Xit=[self.integrator.x0 for i in range(nrRep*nrSteps)]
 
             ##############################
 
@@ -645,7 +644,7 @@ class Sampler():
 
                     self.integrator.x0=initialPositions[rep]
                     xyz += self.integrator.run_modifKinEn_Langevin(nrSteps, save_interval=self.modNr)
-                    initialPositions[rep] = xyz[-1]
+                    initialPositions[rep] = xyz[-1] * self.model.x_unit
 
                 #for n in range(0,nrRep):
                 #    Xit[it* (nrRep*nrSteps) + n]=Xrep[n]

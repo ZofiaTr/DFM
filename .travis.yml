@@ -21,7 +21,7 @@ script:
   - python main_run.py --algorithm="std" --iterations 2 --replicas 2
   - python main_run.py --algorithm="eftad_diffmap_local" --iterations 2 --replicas 2
   - python main_run.py --algorithm="modif_kinEn" --iterations 2 --replicas 2
-  
+
 env:
   matrix:
     - python=2.7  CONDA_PY=27
