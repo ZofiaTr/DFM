@@ -337,10 +337,11 @@ class Integrator():
             v = self.v0
 
 
-            #a = np.exp(-self.gamma * (self.dt))
-            #b = np.sqrt(1 - np.exp(-2 * self.gamma * (self.dt)))
 
-            nrSubSteps = 1
+            a = np.exp(-self.gamma * (self.dt))
+            b = np.sqrt(1 - np.exp(-2 * self.gamma * (self.dt)))
+
+            nrSubSteps = 5
             dtInner=self.dt/float(nrSubSteps)
 
 
@@ -357,21 +358,34 @@ class Integrator():
                 dK = dKfct(v / self.model.velocity_unit) * self.model.velocity_unit
 
                 x = x + (self.dt  * dK)
-                
+
 
                 f=self.force_fxn(x)
                 v = v + ((0.5*self.dt ) * f * self.invmasses)
+
+                #v = (a * v) + b * np.random.randn(*x.shape) * np.sqrt(self.kT / self.masses)
+
 
                 for _ in range(nrSubSteps):
 
                     dK = dKfct(v / self.model.velocity_unit) * self.model.velocity_unit
 
-                    v = v - self.gamma * dK * dtInner  +  np.sqrt(2.0 * self.gamma *self.kT* dtInner * self.invmasses) *np.random.randn(*x.shape)
+                    v = v - 0.5 * self.gamma * dK * dtInner  #+  np.sqrt(2.0 * self.gamma *self.kT* dtInner * self.invmasses) *np.random.randn(*x.shape)
+
+                v = v +  np.sqrt(2.0 * self.gamma *self.kT* dtInner * self.invmasses) *np.random.randn(*x.shape)
+
+                for _ in range(nrSubSteps):
+
+                    dK = dKfct(v / self.model.velocity_unit) * self.model.velocity_unit
+
+                    v = v - 0.5 * self.gamma * dK * dtInner  #+  np.sqrt(2.0 * self.gamma *self.kT* dtInner * self.invmasses) *np.random.randn(*x.shape)
 
                 # Append to trajectory
                 xyz.append(x / self.model.x_unit)
                 # Store kinetic temperature
+                #kinTemp = self.computeKineticTemperatureModif(v, dKfct)
                 kinTemp = self.computeKineticTemperature(v)
+
                 self.kineticTemperature.addSample(kinTemp)
 
             self.xEnd=x
@@ -405,84 +419,28 @@ class Integrator():
         kinTemp =kinen*2.0/self.ndof/ (unit.BOLTZMANN_CONSTANT_kB * unit.AVOGADRO_CONSTANT_NA)#*self.model.energy_unit
         return kinTemp
 
+    def computeKineticTemperatureModif(self, v, dK):
 
-#################
+        p = v * self.masses
+        kinen = 0.0*self.model.energy_unit
 
-    # def run_modifKinEn_Langevin(self, n_steps):
-    #         """Simulate n_steps of modified kintic energy Langevin with the kinetic energy perturbed by an adaptively computed CV
-    #
-    #         :param n_steps:
-    #         :param dt:
-    #         : optional parameters:
-    #
-    #             :return:
-    #         """
-    #
-    #         #Number of CV=1
-    #
-    #         xs = [self.x0]
-    #         vs = [self.x0]
-    #
-    #         x = self.x0
-    #         v = self.v0
-    #
-    #         nrSubSteps = 3
-    #         dtInner=self.dt/nrSubSteps
-    #
-    #         cke=1.0
-    #
-    #         f=self.force_fxn(x)
-    #
-    #         for _ in range(n_steps):
-    #
-    #             v = v + ((0.5*self.dt ) * f * self.invmasses)
-    #             #dK=p/m - dK=v
-    #             p = v * self.masses
-    #             #p=p*self.model.velocity_unit*self.model.mass_unit
-    #             pValue=p.value_in_unit(self.model.velocity_unit*self.model.mass_unit)
-    #             diffTheta = pValue**7 #- self.force_fxn(p) / self.model.force_unit
-    #
-    #             diffTheta = diffTheta * (self.model.velocity_unit*self.model.mass_unit)
-    #
-    #             #diffTheta=diffTheta.reshape(v.shape)*self.model.velocity_unit*self.model.mass_unit
-    #
-    #             dK = (p + cke * diffTheta) * self.invmasses
-    #             x = x + (self.dt  * dK )
-    #
-    #             f=self.force_fxn(x)
-    #             v = v + ((0.5*self.dt ) * f * self.invmasses)
-    #
-    #             for _ in range(nrSubSteps):
-    #
-    #                 p = v * self.masses
-    #
-    #                 pValue=p.value_in_unit(self.model.velocity_unit*self.model.mass_unit)
-    #                 diffTheta = pValue**7 #- self.force_fxn(p) / self.model.force_unit
-    #                 diffTheta=diffTheta*(self.model.velocity_unit*self.model.mass_unit)
-    #
-    #                 #diffTheta=diffTheta.reshape(v.shape)*self.model.velocity_unit*self.model.mass_unit
-    #
-    #                 dK = (p + cke * diffTheta) * self.invmasses
-    #
-    #                 v = v - self.gamma * dK * dtInner  +  np.sqrt(2.0 * self.gamma *self.kT* dtInner * self.invmasses) *np.random.randn(*x.shape)
-    #
-    #
-    #             #theta, diffTheta=aprx.linApproxPsi(x, dataLandmarks, Vlandmarks, deriv_v)
-    #             #theta=theta*self.model.x_unit
-    #             #diffTheta=diffTheta.reshape(x.shape)*self.model.x_unit
-    #
-    #             xs.append(x)
-    #             vs.append(v)
-    #
-    #         return xs, vs
+        for i in range(self.model.system.getNumParticles()):
 
-            #################
+            t =  0.0*self.model.energy_unit
+            dKval = dK(v[i,:] / self.model.velocity_unit)
+
+            for j in range(3):
+                t = t  + v[i,j] * dKval[j]* self.model.velocity_unit * self.model.mass_unit
+
+            kinen = kinen + t
+
+        kinTemp =2.0*kinen/self.ndof/ (unit.BOLTZMANN_CONSTANT_kB * unit.AVOGADRO_CONSTANT_NA)
+        return kinTemp
 
     def diffKineticEnergyFunction(self, p):
 
             #unitless
             powerKinEn=2.0
-            DkinEn = p /  (self.masses.value_in_unit(self.model.mass_unit) )
-            #np.sign(p)*np.abs(p)**(powerKinEn-1.0)/ (self.masses.value_in_unit(self.model.mass_unit) )
+            DkinEn = np.sign(p)*np.abs(p)**(powerKinEn-1.0)/ (self.masses.value_in_unit(self.model.mass_unit) )
 
             return DkinEn

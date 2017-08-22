@@ -99,7 +99,7 @@ general_sampler=sampler.Sampler(model=mdl, integrator=integrator, algorithm=iAlg
 
 # nrSteps is number of steps for each nrRep , and iterate the algo nrIterations times - total simulation time is nrSteps x nrIterations
 nrSteps=1000
-nrEquilSteps = 10#10000
+nrEquilSteps = 10000
 nrIterations=args.niterations
 nrRep=args.nreplicas
 
@@ -109,5 +109,5 @@ print('Equilibration: '+repr(nrEquilSteps*dt.value_in_unit(unit.femtosecond))+' 
 general_sampler.run(nrEquilSteps, 1, 1)
 general_sampler.resetInitialConditions()
 # run the simulation
-print('Starting simulation\n')
+print('\n ****\n Starting simulation\n')
 general_sampler.run(nrSteps, nrIterations, nrRep)

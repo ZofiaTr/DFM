@@ -146,6 +146,8 @@ class Sampler():
 
                 if(np.remainder(it, writingEveryNSteps)==0):
                     print('Iteration '+ repr(it))
+                    print('Kinetic Temperature is '+str(self.integrator.kineticTemperature.getAverage()))
+
 
                     if(it>0):
                         t_left=(self.timeAv.getAverage())*(nrIterations-it)
@@ -632,6 +634,7 @@ class Sampler():
 
                 if(np.remainder(it, writingEveryNSteps)==0):
                     print('Iteration '+ repr(it))
+                    print('Kinetic temperature is '+repr(self.integrator.kineticTemperature.getAverage()))
 
                     if(it>0):
                         t_left=(self.timeAv.getAverage())*(nrIterations-it)
