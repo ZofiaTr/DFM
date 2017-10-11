@@ -29,6 +29,7 @@ everyN=1
 writingEveryNSteps=1
 savingEveryNIterations=100
 adjustEpsilon=1
+saveModNr=100;
 
 class Sampler():
 
@@ -48,7 +49,7 @@ class Sampler():
         self.dim=2
         self.dimCV=1
 
-        self.method='DiffMap'
+        self.method='TMDiffmap'#'DiffMap'
 
         #diffusion maps constants
         self.epsilon=0.5 #0.05
@@ -59,7 +60,7 @@ class Sampler():
 
         self.nrDecorrSteps=1
 
-        self.modNr=10
+        self.modNr=100
         self.modEFTAD=10
 
         self.Traj_LM_save=None
@@ -162,9 +163,10 @@ class Sampler():
                     # TODO: Also track initial and final velocities
 
                     self.integrator.x0=initialPositions[rep]
-                    #xyz += self.integrator.run_langevin(nrSteps, save_interval=self.modNr) # local Python
-                    xyz += self.integrator.run_openmm_langevin(nrSteps, save_interval=self.modNr)
+                    xyz += self.integrator.run_langevin(nrSteps, save_interval=self.modNr) # local Python
+                    #xyz += self.integrator.run_openmm_langevin(nrSteps, save_interval=self.modNr)
                     initialPositions[rep] = self.integrator.xEnd
+
 
                 if(it>0):
                     tavEnd=time.time()
@@ -174,6 +176,7 @@ class Sampler():
                 #self.sampled_trajectory=np.concatenate((tmpselftraj,np.copy(Xrep[-1].value_in_unit(self.model.x_unit))))
 
                 self.trajSave=md.Trajectory(xyz, self.topology)
+
                 print('Saving traj to file')
                 self.trajSave.save(self.savingFolder+self.algorithmName+'_traj_'+repr(it)+'.h5')
                 #if (nrSteps*nrIterations*nrRep)> 10**6:
@@ -253,6 +256,8 @@ class Sampler():
             self.landmarkedStates=[self.model.positions for i in range(nrIterations * self.numberOfLandmarks)]
             ##############################
 
+
+
             for it in range(0,nrIterations):
 
                 if(it>0):
@@ -288,7 +293,7 @@ class Sampler():
 
                 # align all the frames wrt to the first one according to minimal rmsd
                 self.trajSave.superpose(self.trajSave[0])
-
+                #print(self.trajSave.xyz.shape)
                 #------ reshape data ------------------------------
 
                 traj =  self.trajSave.xyz.reshape((self.trajSave.xyz.shape[0], self.trajSave.xyz.shape[1]*self.trajSave.xyz.shape[2]))
@@ -338,7 +343,7 @@ class Sampler():
                 frontierPoint = tmp* self.integrator.model.x_unit
                 #------- simulate eftad and reset initial positions for the next iteration
 
-                self.integrator.x0=initialPositions[0]#frontierPoint
+                self.integrator.x0=initialPositions[0]* self.integrator.model.x_unit#frontierPoint
                 #self.integrator.x0=frontierPoint
                 xEftad,vEftad=self.integrator.run_EFTAD_adaptive(nrStepsEftad,  dataLM, VLM, v)
 
@@ -698,39 +703,71 @@ def reshapeDataBack(traj):
 
     return xyz #* unitConst#model.x_unit
 
-def dimension_reduction(tr, eps, numberOfLandmarks, model, T, method):
+###########################################################
+
+
+def dominantEigenvectorDiffusionMap(tr, eps, sampler, T, method):
+
+        q=np.zeros(len(tr))
+        E=np.zeros(len(tr))
+        for i in range(0,len(tr)):
+            tmp=tr[i].reshape(sampler.model.testsystem.positions.shape)*sampler.model.x_unit
+            E[i]=sampler.model.energy(tmp) / sampler.model.energy_unit
+            betaH_unitless = E[i]/T*sampler.model.temperature_unit
+            q[i]=np.exp(-(betaH_unitless))
+
 
         if method=='PCA':
 
             X_pca = decomposition.TruncatedSVD(n_components=1).fit_transform(tr- np.mean(tr,axis=0))
             v1=X_pca[:,0]
 
-            q=np.zeros(len(tr))
-            for i in range(0,len(tr)):
-                q[i]=np.exp(-(model.energy(tr[i,:]))/float(T))
-            q=q/np.sum(q)
+            qEstimated = q
 
-        else:
+        elif method == 'Diffmap':
+
             if isinstance(tr, md.Trajectory):
                 kernelDiff=dm.compute_kernel_mdtraj(tr, eps)
             else:
-                kernelDiff=dm.compute_kernel(tr, eps)
-            P=dm.compute_P(kernelDiff, tr)
-            q=kernelDiff.sum(axis=1)
 
+                kernelDiff=dm.compute_kernel(tr, eps)
+
+            P=dm.compute_P(kernelDiff, tr)
+            qEstimated = kernelDiff.sum(axis=1)
+
+            #print(eps)
             #X_se = manifold.spectral_embedding(P, n_components = 1, eigen_solver = 'arpack')
             #V1=X_se[:,0]
 
-            lambdas, V = sps.linalg.eigsh(P, k=3)#, which='LM' )
+            lambdas, V = sps.linalg.eigsh(P, k=2)#, which='LM' )
             ix = lambdas.argsort()[::-1]
             X_se= V[:,ix]
 
             v1=X_se[:,1]
-            v2=X_se[:,2]
+            #v2=X_se[:,2]
             #V2=X_se[:,1]
 
+        elif method =='TMDiffmap': #target measure diffusion map
+
+            P, qTargetDistribution, qEstimated = dm.compute_unweighted_P( tr,eps, sampler, q )
+            lambdas, eigenvectors = sps.linalg.eigs(P, k=2)#, which='LM' )
+            lambdas = np.real(lambdas)
+
+            ix = lambdas.argsort()[::-1]
+            X_se= eigenvectors[:,ix]
+            v1=np.real(X_se[:,1])
+
+        else:
+            print('Error in sampler class: dimension_reduction function did not match any method.\n CHoose from: TMDiffmap, PCA, DiffMap')
+
+        return v1, q , qEstimated, E
+
+def dimension_reduction(tr, eps, numberOfLandmarks, model, T, method):
+
+        v1, q, qEstimated, potEn=dominantEigenvectorDiffusionMap(tr, eps, sampler, T, method)
+
             #get landmarks
-        lm=dm.get_landmarks(tr, numberOfLandmarks, q, v1)
+        lm=dm.get_landmarks(tr, numberOfLandmarks, q , v1, potEn)
 
         assert( len(v1) == len(tr)), "Error in function dimension_reduction: length of trajectory and the eigenvector are not the same."
 
@@ -740,8 +777,6 @@ def dimension_reduction(tr, eps, numberOfLandmarks, model, T, method):
         # plt.xlabel('V1')
         # plt.ylabel('V2')
         # plt.show()
-
-
 
         return lm, v1
 

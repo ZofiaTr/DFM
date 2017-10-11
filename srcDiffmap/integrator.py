@@ -86,6 +86,13 @@ class Integrator():
         xyz = list()
 
         x = self.x0
+
+        zeroV = 0.0 * x[0,:]
+        if (self.model.fixOneParticle):
+            x[0,:]= zeroV
+
+        #print(x)
+
         v = self.v0
 
         a = np.exp(-self.gamma * (self.dt))
@@ -96,10 +103,25 @@ class Integrator():
         for step in range(n_steps):
             v = v + ((0.5*self.dt ) * f/ self.masses)
             x = x + ((0.5*self.dt ) * v)
+
+            if (self.model.fixOneParticle):
+                x[0,:]= zeroV
+
+
             v = (a * v) + b * np.random.randn(*x.shape) * np.sqrt(self.kT / self.masses)
+
             x = x + ((0.5*self.dt ) * v)
+
+            if (self.model.fixOneParticle):
+                x[0,:]= zeroV
+
             f=self.force_fxn(x)
+
             v = v + ((0.5*self.dt ) * f / self.masses)
+
+            if (self.model.fixOneParticle):
+                x[0,:]= zeroV
+
 
             if (step+1) % save_interval == 0:
                 xyz.append(x / self.model.x_unit)
@@ -149,6 +171,7 @@ class Integrator():
             self.langevin_integrator.step(save_interval)
             state = self.context.getState(getPositions=True, getVelocities=True, getEnergy=True)
             x = state.getPositions(asNumpy=True)
+
             v = state.getVelocities(asNumpy=True)
             # Append to trajectory
             xyz.append(x / self.model.x_unit)
@@ -156,9 +179,12 @@ class Integrator():
             kinTemp = state.getKineticEnergy()*2.0/self.ndof/ (unit.BOLTZMANN_CONSTANT_kB * unit.AVOGADRO_CONSTANT_NA)
             self.kineticTemperature.addSample(kinTemp)
 
+
         # Save final state
         self.xEnd = x
         self.vEnd = v
+
+
 
         return xyz
 
@@ -241,11 +267,14 @@ class Integrator():
     def run_EFTAD_adaptive(self, n_steps, dataLandmarks, Vlandmarks, deriv_v):
         """Simulate n_steps of EFTAD with cv adaptive
 
+
         :param n_steps:
         :param dt:
         : optional parameters:
 
             :return:
+
+        The positions and velocities here x anf v are in the openmm quantity format.
         """
 
         #Number of CV=1
@@ -267,14 +296,15 @@ class Integrator():
         az = np.exp(-self.gammaAlpha * (self.dt))
         bz = np.sqrt(1.0 - np.exp(-2 * self.gammaAlpha * (self.dt)))
 
-
+        # theta is in units of position and difftheta as being the gradient (x1-x2/dx) is unitless
         theta, diffTheta=aprx.linApproxPsi(x, self.model, dataLandmarks, Vlandmarks, deriv_v)
-        theta=theta*self.model.x_unit
-        #diffTheta=diffTheta.reshape(x.shape)
 
+        theta=theta*self.model.x_unit
 
         F2=-self.kappaAlpha*((theta - z)*diffTheta)
-        f=self.force_fxn(x)+F2
+
+
+        f=self.force_fxn(x) +F2
         fAlpha=self.kappaAlpha*(theta-z)
 
 

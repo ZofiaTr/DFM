@@ -37,6 +37,8 @@ parser.add_argument('--iterations', dest='niterations', type=int, default=10000,
                     help='number of iterations to run (default: 10000)')
 parser.add_argument('--replicas', dest='nreplicas', type=int, default=10,
                     help='number of replicas to use per iteration (default: 10)')
+parser.add_argument('--nrsteps', dest='nrSteps', type=int, default=1000,
+                    help='number of replicas to use per iteration (default: 10)')
 
 args = parser.parse_args()
 
@@ -61,7 +63,7 @@ else:
     print('Error: wrong algorithm flag. ')
 
 # parameters
-T=400.0#400
+T=300.0#400
 temperature =  T * unit.kelvin#300 * unit.kelvin
 kT = kB * temperature
 
@@ -98,16 +100,17 @@ integrator=integrator.Integrator( model=mdl, gamma=gamma, temperature=temperatur
 general_sampler=sampler.Sampler(model=mdl, integrator=integrator, algorithm=iAlgo, dataFileName=dataFileName)
 
 # nrSteps is number of steps for each nrRep , and iterate the algo nrIterations times - total simulation time is nrSteps x nrIterations
-nrSteps=1000
-nrEquilSteps = 10000
+nrSteps=args.nrSteps
+nrEquilSteps = 0#10000 #10000
 nrIterations=args.niterations
 nrRep=args.nreplicas
 
 print('Simulation time: '+repr(nrSteps*nrIterations*dt.value_in_unit(unit.femtosecond))+' '+str(unit.femtosecond)+'\n ***** \n' )
-
-print('Equilibration: '+repr(nrEquilSteps*dt.value_in_unit(unit.femtosecond))+' '+str(unit.femtosecond)+'\n ***** \n' )
-general_sampler.run(nrEquilSteps, 1, 1)
-general_sampler.resetInitialConditions()
+#
+if (nrEquilSteps>0):
+    print('Equilibration: '+repr(nrEquilSteps*dt.value_in_unit(unit.femtosecond))+' '+str(unit.femtosecond)+'\n ***** \n' )
+    general_sampler.runStd(nrEquilSteps, 1, 1)
+    general_sampler.resetInitialConditions()
 # run the simulation
 print('\n ****\n Starting simulation\n')
 general_sampler.run(nrSteps, nrIterations, nrRep)

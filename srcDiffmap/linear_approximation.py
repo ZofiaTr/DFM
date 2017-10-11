@@ -27,13 +27,18 @@ def linApproxPsi(point,modelObj, data_landmarks, V_landmarks, v):
     #point=point.reshape([point.shape[0]*point.shape[1]])
     #1) first find landmark points with minimal rmsd and then rotate the point wrt that landmark...
     #find k such that x is between l_k and l_k+1
-    xyzPoint=np.array([point.value_in_unit(modelObj.x_unit)])
-    #print xyzPoint
+
+
+
+    xyzPoint=point/modelObj.x_unit #np.array([point.value_in_unit(modelObj.x_unit)])
+    #print( xyzPoint.shape[0])
+    #print( xyzPoint.shape[1])
     X=md.Trajectory(xyzPoint, modelObj.testsystem.topology)
 
     for k in range(0,K):
-        #print xyzPoint.shape
-        tmp= data_landmarks[k].reshape((xyzPoint.shape[1],xyzPoint.shape[2]))
+
+        tmp= data_landmarks[k].reshape((xyzPoint.shape[0],xyzPoint.shape[1]))
+
         dlm =md.Trajectory(tmp, modelObj.testsystem.topology)
         #print dlm
         nr[k]=md.rmsd(X, dlm)
@@ -54,12 +59,19 @@ def linApproxPsi(point,modelObj, data_landmarks, V_landmarks, v):
 
     #print lk
     psiX= np.dot(xyzPointResh - lk, v[lkidx])+V_landmarks[lkidx]
+
     vPoint=v[lkidx]
 
+
     psiX=np.array(psiX)
-    vPoint=np.array(vPoint)
-    #print vPoint.shape
-    return psiX, vPoint.reshape((xyzPoint.shape[1],xyzPoint.shape[2]))
+    #vPoint=np.array(vPoint)
+
+    vPoint=vPoint.reshape((xyzPoint.shape[0],xyzPoint.shape[1]))
+    #print (vPoint.shape)
+    #vPoint =md.Trajectory(vPoint, modelObj.testsystem.topology)
+    #psiX=psiX*modelObj.x_unit
+
+    return psiX, vPoint
 
 def diff_lin(x1,x2, f1,f2):
 

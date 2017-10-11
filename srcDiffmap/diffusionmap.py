@@ -20,6 +20,9 @@ import mdtraj as md
 
 from numpy import linalg as LA
 
+import model
+dummyModel=model.Model()
+
 #epsilon = 0.1;
 #r=math.sqrt(2*epsilon);
 
@@ -45,13 +48,25 @@ def compute_kernel(X, epsilon):
 
     m = np.shape(X)[0];
 
+    #print('X is '+repr(np.shape(X)))
+
     cutoff = np.sqrt(2*epsilon);
 
     #calling nearest neighbor search class: returning a (sparse) distance matrix
-    albero = neigh_search.radius_neighbors_graph(X, radius = cutoff, mode='distance', p=2, include_self=None)
+    #albero = neigh_search.radius_neighbors_graph(X, radius = cutoff, mode='distance', p=2, include_self=None)
+    albero = neigh_search.radius_neighbors_graph(X, radius=cutoff, mode='distance', metric = myRMSDmetric, include_self=None)#mode='pyfunc',, metric_params={'myRMSDmetric':myRMSDmetric}, include_self=None)
+
+    #albero = neigh_search.radius_neighbors_graph(X.xyz, radius=cutoff, mode='pyfunc', metric_params={'func' : md.rmsd}, include_self=None)
+    #md.rmsd(X[i], X[j])
+
+    #adaptive epsilon
+    x=np.array(albero.data)
+    adaptiveEpsilon=0.5*np.mean(x)
+    diffusion_kernel = np.exp(-(x**2)/(adaptiveEpsilon))
+    print("Adaptive epsilon in compute_kernel is "+repr(adaptiveEpsilon))
 
     # computing the diffusion kernel value at the non zero matrix entries
-    diffusion_kernel = np.exp(-(np.array(albero.data)**2)/(epsilon))
+    #diffusion_kernel = np.exp(-(np.array(albero.data)**2)/(epsilon))
 
     # build sparse matrix for diffusion kernel
     kernel = sps.csr_matrix((diffusion_kernel, albero.indices, albero.indptr), dtype = float, shape=(m,m))
@@ -63,7 +78,7 @@ def compute_kernel_mdtraj(traj, epsilon):
     """UNDER CONSTRUCTION: DOES NOT WORK"""
 
     #check the format of traj - if there are more particles
-
+    print('You are in compute_kernel_mdtraj: under construction, does not work yet..')
     # Number of frames in trajectory
     m = len(traj)
 
@@ -71,9 +86,12 @@ def compute_kernel_mdtraj(traj, epsilon):
     cutoff = np.sqrt(2*epsilon);
 
     # Calling nearest neighbor search class: returning a (sparse) distance matrix
-    albero = neigh_search.radius_neighbors_graph(traj.xyz, radius=cutoff, mode='pyfunc', metric_params={'func' : md.rmsd}, include_self=None)
 
-    md.rmsd(X[i], X[j])
+    tmpTraj = traj.xyz
+    reshapedTraj = tmpTraj.reshape(tmpTraj.shape[0], tmpTraj.shape[1]*tmpTraj.shape[2] )
+    albero = neigh_search.radius_neighbors_graph(reshapedTraj, radius=cutoff, mode='distance', metric = myRMSDmetric, include_self=None)#mode='pyfunc',, metric_params={'myRMSDmetric':myRMSDmetric}, include_self=None)
+
+    #md.rmsd(X[i], X[j])
 
     # computing the diffusion kernel value at the non zero matrix entries
     diffusion_kernel = np.exp(-(np.array(albero.data)**2)/(epsilon))
@@ -83,6 +101,27 @@ def compute_kernel_mdtraj(traj, epsilon):
     kernel = kernel + sps.identity(m)  # accounting for diagonal elements
 
     return kernel;
+
+def myRMSDmetric(arr1, arr2):
+    """
+    This is built under the assumption that the space dimension is 3!!!
+    Requirement from sklearn radius_neighbors_graph: The callable should take two arrays as input and return one value indicating the distance between them.
+     Input: One row from reshaped md trajectory as number of steps times nDOF
+     Inside: Reshape back to md.Trajectory and apply md.rmsd as r=md.rmsd(X[i], X[j])
+     Output: r
+    """
+    nParticles = len(arr1) / 3;
+    assert (nParticles == int(nParticles))
+
+    arr1 = arr1.reshape(int(nParticles), 3 )
+    arr2 = arr2.reshape(int(nParticles), 3 )
+
+    p1MD=md.Trajectory(arr1, dummyModel.testsystem.topology)
+    p2MD=md.Trajectory(arr2, dummyModel.testsystem.topology)
+
+    d=md.rmsd(p1MD, p2MD)
+
+    return d
 
 def compute_P(kernel, X):
 
@@ -96,6 +135,37 @@ def compute_P(kernel, X):
     kernel = Dalpha * kernel;
 
     return kernel
+
+def compute_unweighted_P( X, epsilon, sampler, target_distribution):
+
+    #print('Unweighting according to temperature '+repr(sampler.T))
+    m = len(X) #np.shape(X)[0];
+
+    if isinstance(X, md.Trajectory):
+        kernel=compute_kernel_mdtraj(X, epsilon)
+    else:
+
+        kernel = compute_kernel(X, epsilon)
+
+    qEmp=kernel.sum(axis=1)
+
+    weights = np.zeros(m)
+
+    for i in range(0,len(X)):
+
+        #target_distribution[i] = np.exp( -  sampler.model.potential(X[i]) / sampler.T)
+        weights[i] = np.sqrt(target_distribution[i]) /  qEmp[i]
+
+    D = sps.spdiags(weights, 0, m, m)
+    Ktilde =  kernel * D
+
+    #Dalpha = sps.csr_matrix.sum(Ktilde, axis=0);
+    Dalpha = sps.csr_matrix.sum(Ktilde, axis=1).transpose();
+    Dtilde = sps.spdiags(np.power(Dalpha,-1), 0, m, m)
+
+    L = Dtilde * Ktilde
+
+    return L, target_distribution, qEmp
 
 def pdist2(x,y):
     v=np.sqrt(((x-y)**2).sum())
@@ -114,7 +184,7 @@ def get_eigenvectors(data, nrEV, **kwargs):
 
 
 
-def get_landmarks(data, K, q, V1):
+def get_landmarks(data, K, q, V1, potEn, getLevelSets=None):
 
     m = float(q.size)
     #q=np.array(q)
@@ -127,6 +197,15 @@ def get_landmarks(data, K, q, V1):
 
     landmarks=np.zeros(K)
     emptyLevelSet=0
+
+    if(getLevelSets):
+        levelsets=list()
+
+    # compute potential energy on the data points (usually available in the codes..)
+    # E=np.zeros(len(data))
+    # for n in range(0,len(data)):
+    #     E[n] = potEn(data[n,:])
+    E=potEn
 
     for k in range(K-1, -1, -1):
 
@@ -142,6 +221,10 @@ def get_landmarks(data, K, q, V1):
 
                 levelset = np.where(np.abs(V1 - levels[k]) < delta)
                 levelset=levelset[0]
+
+                if(getLevelSets):
+                    levelsets.append(levelset)
+
                 levelsetLength=len(levelset)
                 #print levelsetLength
 
@@ -154,27 +237,76 @@ def get_landmarks(data, K, q, V1):
             data_level = data[levelset,:]
 
             if k==K-1:
-                idx = np.argmax(q[levelset]/m )
+                #idx = np.argmax(q[levelset]/m )
+                idx = np.argmin(E[levelset])#/m )
                 landmarks[k]= levelset[idx]
 
             else:
-                idx = np.argmax(q[levelset]/m )
-                qtmp=q[levelset]/m
+                #idx = np.argmax(q[levelset]/m )
+                #qtmp=q[levelset]/m
+                idx = np.argmin(E[levelset])#/m )
+                qtmp=E[levelset]#/m
 
                 # compute the distance to the last landmark
                 dist_to_last=np.zeros(data_level.shape[0])
-                for i in range(0,data_level.shape[0]):
-                    dist_to_last[int(i)] = pdist2(data[int(landmarks[k+1]),:], data_level[int(i)])
-                dtmp=np.array(dist_to_last.reshape(qtmp.shape))
+                for i in range(data_level.shape[0]):
+                    dist_to_last[i] = pdist2(data[int(landmarks[k+1]),:], data_level[i])
 
-                v=qtmp  - lb*dtmp
+                #dtmp=np.array(dist_to_last.reshape(qtmp.shape))
+                dtmp=dist_to_last
+                #print(dtmp.shape)
+                v=qtmp  + lb*dtmp
 
-                idx = np.argmax(v);
+                idx = np.argmin(v);
 
                 landmarks[k]= levelset[idx]
 
+    if(getLevelSets):
+        return landmarks.astype(int), levelsets, levels
+    else:
+        return landmarks.astype(int)
 
-    return landmarks.astype(int)
+def get_levelsets(data, K, q, V1):
+
+    m = float(q.size)
+    #q=np.array(q)
+
+    delta = 100.0/m*(max(V1)-min(V1))
+    deltaMax=2*delta
+    levels = np.linspace(min(V1),max(V1),num=K)
+
+    lb = 1
+
+    landmarks=np.zeros(K)
+    emptyLevelSet=0
+
+    levelsets=list()
+
+    for k in range(K-1, -1, -1):
+
+            levelsetLength=0
+
+            # we want to identify idices in V1 which are delta close to the levels
+            #---o----o----o----o----o---
+            #  *o** *o*  *o*  *o*   o
+            # if there are no indeces in the delta distance, increase the delta distance
+
+            while levelsetLength==0:
+
+                levelset_k = np.where(np.abs(V1 - levels[k]) < delta)
+                levelsetLength=len(levelset_k)
+                #print levelsetLength
+
+                delta=delta*1.001
+
+                if delta>deltaMax:
+                    levelset_k=range(0,len(V1))
+                    #print("In get_landmarks: Levelset chosen as V1")
+
+                levelsets.append(levelset_k[0])
+
+    return levelsets, levels
+
 
 def sort_landmarks(data, landmarks):
 
