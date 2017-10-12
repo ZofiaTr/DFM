@@ -708,13 +708,13 @@ def reshapeDataBack(traj):
 
 def dominantEigenvectorDiffusionMap(tr, eps, sampler, T, method):
 
-        q=np.zeros(len(tr))
+        qTargetDistribution=np.zeros(len(tr))
         E=np.zeros(len(tr))
         for i in range(0,len(tr)):
             tmp=tr[i].reshape(sampler.model.testsystem.positions.shape)*sampler.model.x_unit
             E[i]=sampler.model.energy(tmp) / sampler.model.energy_unit
             betaH_unitless = E[i]/T*sampler.model.temperature_unit
-            q[i]=np.exp(-(betaH_unitless))
+            qTargetDistribution[i]=np.exp(-(betaH_unitless))
 
 
         if method=='PCA':
@@ -722,7 +722,8 @@ def dominantEigenvectorDiffusionMap(tr, eps, sampler, T, method):
             X_pca = decomposition.TruncatedSVD(n_components=1).fit_transform(tr- np.mean(tr,axis=0))
             v1=X_pca[:,0]
 
-            qEstimated = q
+            qEstimated = qTargetDistribution
+            kernelDiff=[]
 
         elif method == 'Diffmap':
 
@@ -749,7 +750,7 @@ def dominantEigenvectorDiffusionMap(tr, eps, sampler, T, method):
 
         elif method =='TMDiffmap': #target measure diffusion map
 
-            P, qTargetDistribution, qEstimated = dm.compute_unweighted_P( tr,eps, sampler, q )
+            P, qEstimated, kernelDiff = dm.compute_unweighted_P( tr,eps, sampler, qTargetDistribution )
             lambdas, eigenvectors = sps.linalg.eigs(P, k=2)#, which='LM' )
             lambdas = np.real(lambdas)
 
@@ -760,7 +761,7 @@ def dominantEigenvectorDiffusionMap(tr, eps, sampler, T, method):
         else:
             print('Error in sampler class: dimension_reduction function did not match any method.\n CHoose from: TMDiffmap, PCA, DiffMap')
 
-        return v1, q , qEstimated, E
+        return v1, qTargetDistribution, qEstimated, E, kernelDiff
 
 def dimension_reduction(tr, eps, numberOfLandmarks, model, T, method):
 

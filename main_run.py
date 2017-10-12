@@ -63,7 +63,7 @@ else:
     print('Error: wrong algorithm flag. ')
 
 # parameters
-T=300.0#400
+T=500.0#400
 temperature =  T * unit.kelvin#300 * unit.kelvin
 kT = kB * temperature
 
@@ -77,13 +77,15 @@ massScale=50.0
 gammaScale=100.0
 kappaScale=1000.0
 
-print("TemperatureTAMDFactor = " + repr(TemperatureTAMDFactor))
+if iAlgo >0:
+    print("TemperatureTAMDFactor = " + repr(TemperatureTAMDFactor))
 temperatureAlpha= (T*TemperatureTAMDFactor)* unit.kelvin
 
 print('Gamma is '+repr(gamma))
 print('Temperature is '+repr(temperature))
-print('Temperature TAMD '+repr(TemperatureTAMDFactor)+'xTemperature')
-print('Mass alpha is '+repr(massScale)+'x Mass')
+if iAlgo >0:
+    print('Temperature TAMD '+repr(TemperatureTAMDFactor)+'xTemperature')
+    print('Mass alpha is '+repr(massScale)+'x Mass')
 
 #create folders to save the data
 if iAlgo ==0:

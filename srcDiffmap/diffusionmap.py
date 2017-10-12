@@ -21,7 +21,9 @@ import mdtraj as md
 from numpy import linalg as LA
 
 import model
+
 dummyModel=model.Model()
+#
 
 #epsilon = 0.1;
 #r=math.sqrt(2*epsilon);
@@ -40,6 +42,10 @@ def reshapeData(X):
 
 
 def compute_kernel(X, epsilon):
+    """
+    Compute kernel of trajectory: using RMSD distances
+    parameters: X is matrix of size number of steps times nDOF
+    """
 
     #check the format of traj - if there are more particles
 
@@ -54,8 +60,9 @@ def compute_kernel(X, epsilon):
 
     #calling nearest neighbor search class: returning a (sparse) distance matrix
     #albero = neigh_search.radius_neighbors_graph(X, radius = cutoff, mode='distance', p=2, include_self=None)
+    print('constructing neighbor graph')
     albero = neigh_search.radius_neighbors_graph(X, radius=cutoff, mode='distance', metric = myRMSDmetric, include_self=None)#mode='pyfunc',, metric_params={'myRMSDmetric':myRMSDmetric}, include_self=None)
-
+    print('neighbor graph done')
     #albero = neigh_search.radius_neighbors_graph(X.xyz, radius=cutoff, mode='pyfunc', metric_params={'func' : md.rmsd}, include_self=None)
     #md.rmsd(X[i], X[j])
 
@@ -63,7 +70,11 @@ def compute_kernel(X, epsilon):
     x=np.array(albero.data)
     adaptiveEpsilon=0.5*np.mean(x)
     diffusion_kernel = np.exp(-(x**2)/(adaptiveEpsilon))
-    print("Adaptive epsilon in compute_kernel is "+repr(adaptiveEpsilon))
+    #print("Adaptive epsilon in compute_kernel is "+repr(adaptiveEpsilon))
+
+    # adaptive epsilon should be smaller as the epsilon, since it is half of maximal distance which is bounded by cutoff parameter
+    assert(adaptiveEpsilon <= epsilon)
+
 
     # computing the diffusion kernel value at the non zero matrix entries
     #diffusion_kernel = np.exp(-(np.array(albero.data)**2)/(epsilon))
@@ -110,14 +121,18 @@ def myRMSDmetric(arr1, arr2):
      Inside: Reshape back to md.Trajectory and apply md.rmsd as r=md.rmsd(X[i], X[j])
      Output: r
     """
+
+
     nParticles = len(arr1) / 3;
     assert (nParticles == int(nParticles))
 
     arr1 = arr1.reshape(int(nParticles), 3 )
     arr2 = arr2.reshape(int(nParticles), 3 )
 
+
     p1MD=md.Trajectory(arr1, dummyModel.testsystem.topology)
     p2MD=md.Trajectory(arr2, dummyModel.testsystem.topology)
+
 
     d=md.rmsd(p1MD, p2MD)
 
@@ -165,7 +180,7 @@ def compute_unweighted_P( X, epsilon, sampler, target_distribution):
 
     L = Dtilde * Ktilde
 
-    return L, target_distribution, qEmp
+    return L, qEmp, kernel
 
 def pdist2(x,y):
     v=np.sqrt(((x-y)**2).sum())

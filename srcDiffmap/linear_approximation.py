@@ -4,8 +4,11 @@ import rmsd
 import model
 import mdtraj as md
 
+from model import dummyModel, dummyTopology
 
-def linApproxPsi(point,modelObj, data_landmarks, V_landmarks, v):
+
+
+def linApproxPsi(point, data_landmarks, V_landmarks, v):
     """
     add description:
 
@@ -30,38 +33,44 @@ def linApproxPsi(point,modelObj, data_landmarks, V_landmarks, v):
 
 
 
-    xyzPoint=point/modelObj.x_unit #np.array([point.value_in_unit(modelObj.x_unit)])
+    xyzPoint=point/dummyModel.x_unit #np.array([point.value_in_unit(modelObj.x_unit)])
+
+
     #print( xyzPoint.shape[0])
     #print( xyzPoint.shape[1])
-    X=md.Trajectory(xyzPoint, modelObj.testsystem.topology)
+    X=md.Trajectory(xyzPoint, dummyTopology)
+    #LM0=md.Trajectory(data_landmarks[-1], dummyTopology)
+    #X.superpose(LM0)
 
     for k in range(0,K):
 
         tmp= data_landmarks[k].reshape((xyzPoint.shape[0],xyzPoint.shape[1]))
 
-        dlm =md.Trajectory(tmp, modelObj.testsystem.topology)
+        dlm =md.Trajectory(tmp, dummyTopology)
         #print dlm
-        nr[k]=md.rmsd(X, dlm)
-        #nr[k]=LA.norm(point-data_landmarks[k,:])
+        nr[k]=md.rmsd(dlm, X)
+
+        #d1=xyzPoint-data_landmarks[k]
+        #nr[k]=np.tensordot(d1, d1)
         #nr[k]=LA.norm(point-data_landmarks[k,:])
         #nr[k]=rmsd.kabsch_rmsd(point, dlm)
         #nr[k]=rmsd.calculate_rmsd point dlm
         #print nr[k]
 
     lkidx=np.argmin(nr)
-    #print lkidx
+
 
     lk=data_landmarks[lkidx]
     #print v[lkidx].shape
     #print np.dot((point - lk).T, v[lkidx])
 
-    xyzPointResh=xyzPoint.reshape(lk.shape)
+    xyzPointResh=xyzPoint#.reshape(lk.shape)
+    #print(xyzPointResh - lk)
 
     #print lk
-    psiX= np.dot(xyzPointResh - lk, v[lkidx])+V_landmarks[lkidx]
+    psiX= np.tensordot(xyzPointResh - lk, v[lkidx]) + V_landmarks[lkidx]
 
     vPoint=v[lkidx]
-
 
     psiX=np.array(psiX)
     #vPoint=np.array(vPoint)
@@ -75,11 +84,23 @@ def linApproxPsi(point,modelObj, data_landmarks, V_landmarks, v):
 
 def diff_lin(x1,x2, f1,f2):
 
+    X1=md.Trajectory(x1, dummyTopology)
+    X2=md.Trajectory(x2, dummyTopology)
+
     v=np.shape(x1)
+
+    # dif=(x2-x1)
+    #
+    # nlk=LA.norm(dif)**2
+    # if(nlk == 0):
+    #     nlk=1
+    #
+    # v= dif*(f2-f1)/float(nlk)
 
     dif=(x2-x1)
 
-    nlk=LA.norm(dif)**2
+    #nlk=md.rmsd(X1,X2)
+    nlk=np.tensordot(dif, dif)
     if(nlk == 0):
         nlk=1
 
@@ -89,28 +110,21 @@ def diff_lin(x1,x2, f1,f2):
 
 def compute_all_derivatives(data_landmarks, V_landmarks):
 
-    K=len(data_landmarks)
+    K=data_landmarks.shape[0]
 
-
-
-    if data_landmarks.ndim==1:
-        v=np.zeros(K)
-
-    else:
-        dim=data_landmarks.shape[1]
-        v=np.zeros((K, dim))
+    #dim=data_landmarks.shape[-1]
+    #print(dim)
+    v=np.zeros(data_landmarks.shape)
 
     for lkidx in range(0,K-1):
 
-            x1=data_landmarks[lkidx+1,:]
-            x0=data_landmarks[lkidx,:]
+            x1=data_landmarks[lkidx+1]
+            x0=data_landmarks[lkidx]
 
             f1=V_landmarks[lkidx+1]
             f0=V_landmarks[lkidx]
 
             v[lkidx]=diff_lin(x0,x1, f0,f1)
-
-
 
     if data_landmarks.ndim==1:
         v[K-1]=v[K-2]

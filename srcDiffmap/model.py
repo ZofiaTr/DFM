@@ -10,30 +10,42 @@ from openmmtools import testsystems
 
 #i = importlib.import_module("matplotlib.text")
 
+
+modelName='Alanine'
+
 class Model():
 
-    def __init__(self):
+    def __init__(self, modelName='Dimer'):
 
-        #AlanineDipeptideVacuum
+
+        self.modelName = modelName
+        if (self.modelName == 'Dimer'):
+
+            self.testsystem = self.createDimer();
+            name = self.testsystem
+            self.modelname=str(name)
+
+        elif(self.modelName == 'Alanine'):
+
+
+            #AlanineDipeptideVacuum
+
+            from openmmtools.testsystems import AlanineDipeptideVacuum#TolueneVacuum#SrcImplicit#AlanineDipeptideVacuum#LennardJonesCluster#AlanineDipeptideVacuum#HarmonicOscillator#Diatom #AlanineDipeptideVacuum#Diatom
+
+            name=AlanineDipeptideVacuum
+            self.modelname=str(name)
 
         #ala2
-        #from openmmtools.testsystems import AlanineDipeptideVacuum#TolueneVacuum#SrcImplicit#AlanineDipeptideVacuum#LennardJonesCluster#AlanineDipeptideVacuum#HarmonicOscillator#Diatom #AlanineDipeptideVacuum#Diatom
+            self.testsystem = name(constraints=None)
 
+        elif(self.modelName == 'LJCluster'):
+            ## LJ cluster
+            from openmmtools.testsystems import LennardJonesCluster
+            name=LennardJonesCluster
 
-
-
-        #from my_test_system import AlanineDipeptideVacuum
-
-        self.testsystem = self.createDimer();
-        #ala2
-        #name=AlanineDipeptideVacuum
-        name = self.testsystem
-        self.modelname=str(name)
-
-        #ala2
-        #self.testsystem = name(constraints=None)
-        ## LJ cluster
-        #self.testsystem = name(nx=2, ny=2, nz=1, constraints=None)
+            self.testsystem = name(nx=2, ny=2, nz=1, constraints=None)
+        else:
+            print("In class Model(): modelName not found")
 
         (self.system, self.positions) = self.testsystem.system, self.testsystem.positions
 
@@ -165,3 +177,7 @@ class Model():
         # self.ndof = 6 - 1 * constraint
 
         return testsystem
+
+
+dummyModel=Model(modelName)
+dummyTopology=dummyModel.testsystem.topology
