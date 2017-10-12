@@ -47,15 +47,9 @@ def compute_kernel(X, epsilon):
     parameters: X is matrix of size number of steps times nDOF
     """
 
-    #check the format of traj - if there are more particles
-
-    #if len(X.shape)>2:
-    #    X=reshapeData(X)
 
     m = np.shape(X)[0];
-
-    #print('X is '+repr(np.shape(X)))
-
+    
     cutoff = np.sqrt(2*epsilon);
 
     #calling nearest neighbor search class: returning a (sparse) distance matrix
@@ -64,7 +58,6 @@ def compute_kernel(X, epsilon):
     albero = neigh_search.radius_neighbors_graph(X, radius=cutoff, mode='distance', metric = myRMSDmetric, include_self=None)#mode='pyfunc',, metric_params={'myRMSDmetric':myRMSDmetric}, include_self=None)
     print('neighbor graph done')
     #albero = neigh_search.radius_neighbors_graph(X.xyz, radius=cutoff, mode='pyfunc', metric_params={'func' : md.rmsd}, include_self=None)
-    #md.rmsd(X[i], X[j])
 
     #adaptive epsilon
     x=np.array(albero.data)
@@ -113,11 +106,38 @@ def compute_kernel_mdtraj(traj, epsilon):
 
     return kernel;
 
+def myEuclideanMetric(arr1, arr2):
+    """
+    Under assumption that the trajectory is aligned w.r.t minimal rmsd w.r.t. first frame
+    This is built under the assumption that the space dimension is 3!!!
+    Requirement from sklearn radius_neighbors_graph: The callable should take two arrays as input and return one value indicating the distance between them.
+     Input: One row from reshaped xyz trajectory as number of steps times nDOF
+     Inside: Reshape back to xyz (NrPart, dim) and apply norm
+     Output: r
+    """
+
+
+    nParticles = len(arr1) / 3;
+    assert (nParticles == int(nParticles))
+
+    arr1 = arr1.reshape(int(nParticles), 3 )
+    arr2 = arr2.reshape(int(nParticles), 3 )
+
+    s=0
+    for i in range(int(nParticles)):
+        stmp = np.linalg.norm(arr1[i,:]-arr2[i,:])
+        s+=stmp*stmp
+    d=np.sqrt( s / nParticles)
+
+
+    return d
+
+
 def myRMSDmetric(arr1, arr2):
     """
     This is built under the assumption that the space dimension is 3!!!
     Requirement from sklearn radius_neighbors_graph: The callable should take two arrays as input and return one value indicating the distance between them.
-     Input: One row from reshaped md trajectory as number of steps times nDOF
+     Input: One row from reshaped xyz trajectory as number of steps times nDOF
      Inside: Reshape back to md.Trajectory and apply md.rmsd as r=md.rmsd(X[i], X[j])
      Output: r
     """
