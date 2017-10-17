@@ -59,11 +59,14 @@ elif(algoFlag=='modif_kinEn_force' or algoFlag=='5'):
     iAlgo=5
 elif(algoFlag=='modif_kinEn' or algoFlag=='6'):
     iAlgo=6
+elif(algoFlag=='initial_condition' or algoFlag=='7'):
+    iAlgo=7
+
 else:
     print('Error: wrong algorithm flag. ')
 
 # parameters
-T=500.0#400
+T=100.0#400
 temperature =  T * unit.kelvin#300 * unit.kelvin
 kT = kB * temperature
 

@@ -190,7 +190,7 @@ def computeUnbiasedAverages(x, f, weight, units=1.0):
     ci=0
     for xi in x:
 
-        Vef[ci]=f(xi)/units
+        Vef[ci]=weight[ci]*f(xi)/units
         ci=ci+1
 
-    return np.mean(Vef*weight)/Ntilde
+    return np.mean(Vef)/Ntilde

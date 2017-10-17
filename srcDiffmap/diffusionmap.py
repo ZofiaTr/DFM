@@ -49,7 +49,7 @@ def compute_kernel(X, epsilon):
 
 
     m = np.shape(X)[0];
-    
+
     cutoff = np.sqrt(2*epsilon);
 
     #calling nearest neighbor search class: returning a (sparse) distance matrix

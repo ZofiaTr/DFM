@@ -32,6 +32,10 @@ adjustEpsilon=1
 saveModNr=100;
 
 class Sampler():
+    """
+    Read the comments in function run() to see which algorithms are working and which are under construction.
+    """
+
 
     def __init__(self, model, integrator, algorithm=0, dataFileName='/Data'):
 
@@ -39,12 +43,10 @@ class Sampler():
         self.algorithm=algorithm
         self.integrator=integrator
 
+        #set the temperature here - then passed to the integrator
         self.T=self.integrator.temperature
 
         self.timeAv=av.Average(0.0)
-
-        self.x0=np.array([1.0,0.0])#,0]
-        self.p0=[0.0,0.0]#,0]
 
         self.dim=2
         self.dimCV=1
@@ -84,6 +86,8 @@ class Sampler():
             self.algorithmName='modif_kinEn_force'
         if self.algorithm==6:
             self.algorithmName='modif_kinEn'
+        if self.algorithm==7:
+            self.algorithmName='initial_condition'
 
 
 
@@ -105,6 +109,7 @@ class Sampler():
         print('Algorithm: '+self.algorithmName)
         print('Running '+repr(int(nrIterations))+'x '+repr(int(nrSteps))+' steps')
 
+        # TBD
         # Look up function automatically
         #run_function = getattr(self, 'run' + self.algorithmName)
         #try:
@@ -113,19 +118,32 @@ class Sampler():
         #    raise("Could not find run function '%s'" % ('run' + self.algorithmName))
 
         if self.algorithm==0:
+            #working
             self.runStd(nrSteps, nrIterations, nrRep)
         if self.algorithm==1:
+            # under construction: needs general debug
             self.runEftadFixedCV(nrSteps, nrIterations, nrRep)
         if self.algorithm==2:
+            # working
             self.runDiffmapCV_Eftad_local(nrSteps, nrIterations, nrRep)
         if self.algorithm==3:
+            # under construction
             self.runDiffmapCV_Eftad_only(nrSteps, nrIterations, nrRep)
         if self.algorithm==4:
+            # under construction
             self.runDiffmap_modifKinEn_local(nrSteps, nrIterations, nrRep)
         if self.algorithm==5:
+            # under construction
             self.runKinEnForce(nrSteps, nrIterations, nrRep)
         if self.algorithm==6:
+            # under construction
             self.runModifiedKineticEnergy(nrSteps, nrIterations, nrRep)
+        if self.algorithm==7:
+            # working
+            self.runInitialCondition(nrSteps, nrIterations, nrRep)
+
+        #TBD add free energy sampling run
+
 ######----------------- STD ---------------------------------
 
     def runStd(self, nrSteps, nrIterations, nrRep):
@@ -668,6 +686,68 @@ class Sampler():
                 print('Saving traj to file')
                 self.trajSave.save(self.savingFolder+self.algorithmName+'_traj_'+repr(it)+'.h5')
 
+##------------------------------------------
+    def runInitialCondition(self, nrSteps, nrIterations, nrRep):
+
+            #reset time
+            self.timeAv.clear()
+
+            print('runInitialCondition: replicated std dynamics with '+repr(nrRep)+' replicas')
+
+            initialPositions=[self.integrator.x0 for rep in range(0,nrRep)]
+            #Xit=[self.integrator.x0 for i in range(nrRep*nrSteps)]
+
+            ##############################
+
+            for it in range(0,nrIterations):
+
+                if(it>0):
+                    tav0=time.time()
+
+                if(np.remainder(it, writingEveryNSteps)==0):
+                    print('Iteration '+ repr(it))
+                    print('Kinetic Temperature is '+str(self.integrator.kineticTemperature.getAverage()))
+
+
+                    if(it>0):
+                        t_left=(self.timeAv.getAverage())*(nrIterations-it)
+                        print(time.strftime("Time left %H:%M:%S", time.gmtime(t_left)))
+
+                #------- simulate Langevin
+
+                xyz = list()
+
+                for rep in range(0, nrRep):
+
+                    # TODO: Also track initial and final velocities
+
+                    self.integrator.x0=initialPositions[rep]
+
+                    xyz_iter=self.integrator.run_langevin(nrSteps, save_interval=self.modNr) # local Python
+                    xyz += xyz_iter
+                    #xyz += self.integrator.run_openmm_langevin(nrSteps, save_interval=self.modNr)
+
+                    Xmd = md.Trajectory(xyz_iter , self.topology)
+                    #
+                    distances = np.zeros(len(xyz_iter))
+                    for j in range(len(xyz_iter)):
+                        distances[j]=md.rmsd(Xmd[0], Xmd[j])
+
+                    maxrmsd= Xmd[np.argmax(distances)].xyz[0]
+                    initialPositions[rep] = maxrmsd * self.model.x_unit
+
+
+                if(it>0):
+                    tavEnd=time.time()
+                    self.timeAv.addSample(tavEnd-tav0)
+
+
+                self.trajSave=md.Trajectory(xyz, self.topology)
+
+                print('Saving traj to file')
+                self.trajSave.save(self.savingFolder+self.algorithmName+'_traj_'+repr(it)+'.h5')
+
+
 
 #--------------------- Functions --------------------------------
 
@@ -707,6 +787,8 @@ def reshapeDataBack(traj):
 
 
 def dominantEigenvectorDiffusionMap(tr, eps, sampler, T, method):
+
+        print("Temperature in dominantEigenvectorDiffusionMap is "+repr(T))
 
         qTargetDistribution=np.zeros(len(tr))
         E=np.zeros(len(tr))
