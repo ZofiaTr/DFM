@@ -20,7 +20,7 @@ from openmmtools.constants import kB
 import model
 
 #create model defined in class model
-mdl=model.Model()
+mdl=model.Model('Dimer')
 
 print(mdl.x_unit)
 print(mdl.modelname)
@@ -47,20 +47,30 @@ algoFlag=args.algoFlag
 
 if(algoFlag=='std' or algoFlag=='0'):
     iAlgo=0
+    algoName = 'std'
 elif(algoFlag=='eftad_fixed_cv' or algoFlag=='1'):
     iAlgo=1
+    algoName = 'eftad_fixed_cv'
 elif(algoFlag=='eftad_diffmap_local' or algoFlag=='2'):
     iAlgo=2
+    algoName = 'eftad_diffmap_local'
 elif(algoFlag=='eftad_diffmap_only' or algoFlag=='3'):
     iAlgo=3
+    algoName = 'eftad_diffmap_only'
 elif(algoFlag=='eftad_diffmap_kinEn' or algoFlag=='4'):
     iAlgo=4
+    algoName = 'eftad_diffmap_kinEn'
 elif(algoFlag=='modif_kinEn_force' or algoFlag=='5'):
     iAlgo=5
 elif(algoFlag=='modif_kinEn' or algoFlag=='6'):
     iAlgo=6
+    algoName = 'modif_kinEn'
 elif(algoFlag=='initial_condition' or algoFlag=='7'):
     iAlgo=7
+    algoName ='initial_condition'
+elif(algoFlag=='frontier_points' or algoFlag=='8'):
+    iAlgo=8
+    algoName = 'frontier_points'
 
 else:
     print('Error: wrong algorithm flag. ')
@@ -72,7 +82,7 @@ kT = kB * temperature
 
 
 gamma = 1.0 / unit.picosecond
-dt = 2.0 * unit.femtosecond
+dt = 2 * unit.femtosecond#2.0 * unit.femtosecond
 
 TemperatureTAMDFactor=30.0
 massScale=50.0
@@ -92,9 +102,9 @@ if iAlgo >0:
 
 #create folders to save the data
 if iAlgo ==0:
-    dataFileName='Data/Std/Traj/'
+    dataFileName='Data/'+str(algoName)+'/Traj/'
 else:
-    dataFileName='Data/Tsc'+str(int(TemperatureTAMDFactor))+'MS'+str(int(massScale))+'/Traj/'
+    dataFileName='Data/'+str(algoName)+'/Tsc'+str(int(TemperatureTAMDFactor))+'MS'+str(int(massScale))+'/Traj/'
 
 newpath = os.path.join(os.getcwd(),dataFileName)#+ general_sampler.algorithmName
 if not os.path.exists(newpath):

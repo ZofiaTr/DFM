@@ -88,6 +88,8 @@ class Sampler():
             self.algorithmName='modif_kinEn'
         if self.algorithm==7:
             self.algorithmName='initial_condition'
+        if self.algorithm==8:
+            self.algorithmName='frontier_points'
 
 
 
@@ -124,7 +126,7 @@ class Sampler():
             # under construction: needs general debug
             self.runEftadFixedCV(nrSteps, nrIterations, nrRep)
         if self.algorithm==2:
-            # working
+            # under construction
             self.runDiffmapCV_Eftad_local(nrSteps, nrIterations, nrRep)
         if self.algorithm==3:
             # under construction
@@ -141,6 +143,10 @@ class Sampler():
         if self.algorithm==7:
             # working
             self.runInitialCondition(nrSteps, nrIterations, nrRep)
+        if self.algorithm==8:
+            # working
+            self.runFrontierPoints(nrSteps, nrIterations, nrRep)
+
 
         #TBD add free energy sampling run
 
@@ -196,7 +202,7 @@ class Sampler():
                 self.trajSave=md.Trajectory(xyz, self.topology)
 
                 print('Saving traj to file')
-                self.trajSave.save(self.savingFolder+self.algorithmName+'_traj_'+repr(it)+'.h5')
+                self.trajSave.save(self.savingFolder+'traj_'+repr(it)+'.h5')
                 #if (nrSteps*nrIterations*nrRep)> 10**6:
             #    self.sampled_trajectory=Xrep[::modNr**2]
             #else:
@@ -253,7 +259,7 @@ class Sampler():
                 self.trajSave=md.Trajectory(xyz, self.topology)
 
                 print('Saving traj to file')
-                self.trajSave.save(self.savingFolder+self.algorithmName+'_traj_'+repr(it)+'.h5')
+                self.trajSave.save(self.savingFolder+'traj_'+repr(it)+'.h5')
 
 
 #----------------- TAMD/EFTAD
@@ -320,7 +326,7 @@ class Sampler():
 
                 #------ compute CV ------------------------------
 
-                landmarks, V1 = dimension_reduction(traj, self.epsilon, self.numberOfLandmarks, self.model, self.T, self.method)
+                landmarks, V1 = dimension_reduction(traj, self.epsilon, self.numberOfLandmarks, self, self.T, self.method)
                 #landmarks, V1 = dimension_reduction(self.trajSave, self.epsilon, self.numberOfLandmarks, self.model, self.T, self.method) # EXPERIMENTAL
 
                 # change the epsilon if there is not enough of landmarks
@@ -330,7 +336,7 @@ class Sampler():
                     if len(np.unique(landmarks)) < 0.8*len(landmarks) and self.epsilon < self.epsilon_Max:
                         print('Increasing epsilon: epsilon = '+repr(self.epsilon))
                         self.epsilon =self.epsilon*2
-                        landmarks, V1 = dimension_reduction(traj, self.epsilon, self.numberOfLandmarks, self.model, self.T, self.method)
+                        landmarks, V1 = dimension_reduction(traj, self.epsilon, self.numberOfLandmarks, self, self.T, self.method)
                     else:
                         escape=1
 
@@ -389,8 +395,10 @@ class Sampler():
 
                 print('Saving traj to file')
                 self.trajSave = self.trajSave[::self.modNr]
-                self.trajSave.save(self.savingFolder+self.algorithmName+'_traj_'+repr(it)+'.h5')
-                trajEftad.save(self.savingFolder+self.algorithmName+'_trajTAMD_'+repr(it)+'.h5')
+                self.trajSave.save(self.savingFolder+'traj_'+repr(it)+'.h5')
+
+                self.trajSave.save(self.savingFolder+'trajTAMD_'+repr(it)+'.h5')
+
 
 #------------- TAMD only - also for constructing CV
 
@@ -453,7 +461,7 @@ class Sampler():
 
                 #------ compute CV ------------------------------
 
-                landmarks, V1 = dimension_reduction(traj, self.epsilon, self.numberOfLandmarks, self.model, self.T, self.method)
+                landmarks, V1 = dimension_reduction(traj, self.epsilon, self.numberOfLandmarks, self, self.T, self.method)
 
                 # change the epsilon if there is not enough of landmarks
                 escape=0
@@ -462,7 +470,7 @@ class Sampler():
                     if len(np.unique(landmarks)) < 0.8*len(landmarks) and self.epsilon < self.epsilon_Max:
                         print('Increasing epsilon: epsilon = '+repr(self.epsilon))
                         self.epsilon =self.epsilon*2
-                        landmarks, V1 = dimension_reduction(traj, self.epsilon, self.numberOfLandmarks, self.model, self.T, self.method)
+                        landmarks, V1 = dimension_reduction(traj, self.epsilon, self.numberOfLandmarks, self, self.T, self.method)
                     else:
                         escape=1
 
@@ -485,7 +493,7 @@ class Sampler():
                 self.trajSave=md.Trajectory(xyz, self.topology)
 
                 print('Saving traj to file')
-                self.trajSave.save(self.savingFolder+self.algorithmName+'_traj_'+repr(it)+'.h5')
+                self.trajSave.save(self.savingFolder+'traj_'+repr(it)+'.h5')
 
 
 #----------------- modified Kinetic energy
@@ -539,7 +547,7 @@ class Sampler():
 
                 #------ compute CV ------------------------------
 
-                landmarks, V1 = dimension_reduction(traj, self.epsilon, self.numberOfLandmarks, self.model, self.T, self.method)
+                landmarks, V1 = dimension_reduction(traj, self.epsilon, self.numberOfLandmarks, self, self.T, self.method)
 
                 # change the epsilon if there is not enough of landmarks
                 escape=0
@@ -548,7 +556,7 @@ class Sampler():
                     if len(np.unique(landmarks)) < 0.8*len(landmarks) and self.epsilon < self.epsilon_Max:
                         print('Increasing epsilon: epsilon = '+repr(self.epsilon))
                         self.epsilon =self.epsilon*2
-                        landmarks, V1 = dimension_reduction(traj, self.epsilon, self.numberOfLandmarks, self.model, self.T, self.method)
+                        landmarks, V1 = dimension_reduction(traj, self.epsilon, self.numberOfLandmarks, self, self.T, self.method)
                     else:
                         escape=1
 
@@ -587,7 +595,7 @@ class Sampler():
                 self.trajSave=md.Trajectory(xyz, self.topology)
 
                 print('Saving traj to file')
-                self.trajSave.save(self.savingFolder+self.algorithmName+'_traj_'+repr(it)+'.h5')
+                self.trajSave.save(self.savingFolder+'traj_'+repr(it)+'.h5')
 
 ######----------------- pure kin en from force ---------------------------------
 
@@ -634,7 +642,7 @@ class Sampler():
                 self.trajSave=md.Trajectory(xyz, self.topology)
 
                 print('Saving traj to file')
-                self.trajSave.save(self.savingFolder+self.algorithmName+'_traj_'+repr(it)+'.h5')
+                self.trajSave.save(self.savingFolder+'traj_'+repr(it)+'.h5')
 
 
 ######----------------- modif kin Energy ---------------------------------
@@ -684,7 +692,7 @@ class Sampler():
 
                 self.trajSave=md.Trajectory(xyz, self.topology)
                 print('Saving traj to file')
-                self.trajSave.save(self.savingFolder+self.algorithmName+'_traj_'+repr(it)+'.h5')
+                self.trajSave.save(self.savingFolder+'traj_'+repr(it)+'.h5')
 
 ##------------------------------------------
     def runInitialCondition(self, nrSteps, nrIterations, nrRep):
@@ -745,8 +753,88 @@ class Sampler():
                 self.trajSave=md.Trajectory(xyz, self.topology)
 
                 print('Saving traj to file')
-                self.trajSave.save(self.savingFolder+self.algorithmName+'_traj_'+repr(it)+'.h5')
+                self.trajSave.save(self.savingFolder+'traj_'+repr(it)+'.h5')
 
+
+##------------------------------------------
+    def runFrontierPoints(self, nrSteps, nrIterations, nrRep):
+
+            #reset time
+            self.timeAv.clear()
+
+            print('runFrontierPoints: replicated std dynamics with '+repr(nrRep)+' replicas')
+            print('reset initial condition by maximizing the domninant eigenvector obtained by diffusion map')
+
+
+            initialPositions=[self.integrator.x0 for rep in range(0,nrRep)]
+            #Xit=[self.integrator.x0 for i in range(nrRep*nrSteps)]
+
+            ##############################
+
+            for it in range(0,nrIterations):
+
+                if(it>0):
+                    tav0=time.time()
+
+                if(np.remainder(it, writingEveryNSteps)==0):
+                    print('Iteration '+ repr(it))
+                    print('Kinetic Temperature is '+str(self.integrator.kineticTemperature.getAverage()))
+
+
+                    if(it>0):
+                        t_left=(self.timeAv.getAverage())*(nrIterations-it)
+                        print(time.strftime("Time left %H:%M:%S", time.gmtime(t_left)))
+
+                #------- simulate Langevin
+
+                xyz = list()
+
+                for rep in range(0, nrRep):
+
+                    # TODO: Also track initial and final velocities
+
+                    self.integrator.x0=initialPositions[rep]
+
+                    xyz_iter=self.integrator.run_langevin(nrSteps, save_interval=self.modNr) # local Python
+                    xyz += xyz_iter
+                    # #only for replicas
+                    # initialPositions[rep] = self.integrator.xEnd
+
+                # creat md traj object
+                self.trajSave=md.Trajectory(xyz, self.topology)
+                #------ rmsd ------------------------------
+
+
+                # align all the frames wrt to the first one according to minimal rmsd
+                #self.trajSave.superpose(self.trajSave[0])
+                #print(self.trajSave.xyz.shape)
+                #------ reshape data ------------------------------
+
+                traj =  self.trajSave.xyz.reshape((self.trajSave.xyz.shape[0], self.trajSave.xyz.shape[1]*self.trajSave.xyz.shape[2]))
+
+                while(len(traj)>1000):
+                    traj=tra[::2]
+                #------ compute CV ------------------------------
+
+                V1, q, qEstimated, potEn, kernelDiff=dominantEigenvectorDiffusionMap(traj, self.epsilon, self, self.T, self.method)
+
+                idxMaxV1 = np.argmax(np.abs(V1))
+                tmp=traj[idxMaxV1].reshape(self.trajSave.xyz[0].shape)
+                frontierPoint = tmp* self.integrator.model.x_unit
+                #------- simulate eftad and reset initial positions for the next iteration
+
+                self.integrator.x0=frontierPoint
+
+                initialPositions=[frontierPoint for rep in range(0,nrRep)]
+
+
+                if(it>0):
+                    tavEnd=time.time()
+                    self.timeAv.addSample(tavEnd-tav0)
+
+
+                print('Saving traj to file')
+                self.trajSave.save(self.savingFolder+'traj_'+repr(it)+'.h5')
 
 
 #--------------------- Functions --------------------------------
@@ -845,9 +933,9 @@ def dominantEigenvectorDiffusionMap(tr, eps, sampler, T, method):
 
         return v1, qTargetDistribution, qEstimated, E, kernelDiff
 
-def dimension_reduction(tr, eps, numberOfLandmarks, model, T, method):
+def dimension_reduction(tr, eps, numberOfLandmarks, sampler, T, method):
 
-        v1, q, qEstimated, potEn=dominantEigenvectorDiffusionMap(tr, eps, sampler, T, method)
+        v1, q, qEstimated, potEn, kernelDiff=dominantEigenvectorDiffusionMap(tr, eps, sampler, T, method)
 
             #get landmarks
         lm=dm.get_landmarks(tr, numberOfLandmarks, q , v1, potEn)

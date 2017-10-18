@@ -11,7 +11,9 @@ from openmmtools import testsystems
 #i = importlib.import_module("matplotlib.text")
 
 
-modelName='Alanine'
+#modelName='Alanine'
+#modelName='Lemon'
+modelName='Dimer'
 
 class Model():
 
@@ -22,6 +24,12 @@ class Model():
         if (self.modelName == 'Dimer'):
 
             self.testsystem = self.createDimer();
+            name = self.testsystem
+            self.modelname=str(name)
+
+        elif (self.modelName == 'Lemon'):
+
+            self.testsystem = self.createLemon();
             name = self.testsystem
             self.modelname=str(name)
 
@@ -175,6 +183,77 @@ class Model():
 
         # # Store number of degrees of freedom.
         # self.ndof = 6 - 1 * constraint
+
+        return testsystem
+
+    def createLemon(self):
+
+
+        K=1 * unit.kilocalories_per_mole / unit.angstrom**2
+        r0=1.550 * unit.angstroms
+        k=7.0 * unit.kilocalories_per_mole / unit.angstrom**2
+        m1=39.948 * unit.amu
+        m2=39.948 * unit.amu
+        constraint=False
+        use_central_potential=True
+
+        testsystem =testsystems.TestSystem( K=K,
+                 r0=r0,
+                 m1=m1,
+                 m2=m2,
+                 constraint=constraint,
+                 use_central_potential=use_central_potential)
+
+        # Create an empty system object.
+        system = openmm.System()
+
+        # Add two particles to the system.
+        system.addParticle(m1)
+        system.addParticle(m2)
+
+        # Add a harmonic bond.
+        #force = openmm.HarmonicBondForce()
+
+        ## double well with width w and height h centered at r0: two stable states at r=r0 and  r = r0 + 2w
+        print("Lemon model: lemon-lice potential with 7 states and 1 reaction coordinate")
+        force = openmm.CustomBondForce("0.0*r");
+
+        force.addGlobalParameter("k", k);
+
+        force.addBond(0, 1, [])#, r0, h, w)
+        system.addForce(force)
+
+        if constraint:
+            # Add constraint between particles.
+            system.addConstraint(0, 1, r0)
+
+        # Set the positions.
+        positions = unit.Quantity(np.zeros([2, 3], np.float32), unit.angstroms)
+        positions[1, 0] = r0
+
+        if use_central_potential:
+            # Add a central restraining potential.
+            Kcentral = 1.0 * unit.kilocalories_per_mole / unit.nanometer**2
+            energy_expression = ' cos(K * atan(x / y)) + 10*( (x^2 + y^2 + z^2) -1)^2 ;'
+            #energy_expression = '(K/2.0) * ((x^2 + y^2 + z^2)-1)^2;'
+            energy_expression += 'K = testsystems_Diatom_Kcentral;'
+            force = openmm.CustomExternalForce(energy_expression)
+            force.addGlobalParameter('testsystems_Diatom_Kcentral', Kcentral)
+            force.addParticle(0, [])
+            force.addParticle(1, [])
+            system.addForce(force)
+
+        # Create topology.
+        topology = app.Topology()
+        element = app.Element.getBySymbol('N')
+        chain = topology.addChain()
+        residue = topology.addResidue('N2', chain)
+        topology.addAtom('N', element, residue)
+        topology.addAtom('N', element, residue)
+
+        testsystem.topology = topology
+
+        testsystem.system, testsystem.positions = system, positions
 
         return testsystem
 

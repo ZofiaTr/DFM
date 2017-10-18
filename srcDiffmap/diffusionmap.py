@@ -22,7 +22,7 @@ from numpy import linalg as LA
 
 import model
 
-dummyModel=model.Model()
+dummyModel=model.dummyModel#model.Model()
 #
 
 #epsilon = 0.1;
