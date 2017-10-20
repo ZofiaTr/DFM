@@ -105,6 +105,7 @@ def diff_lin(x1,x2, f1,f2):
         nlk=1
 
     v= dif*(f2-f1)/float(nlk)
+    
 
     return v
 

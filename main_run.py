@@ -1,6 +1,6 @@
 """
  python  main_run_mpi.py arg
-
+ example: python main_run.py --algorithm 7 --iterations 10 --replicas 1 --nrsteps 1000
 """
 
 
@@ -71,12 +71,15 @@ elif(algoFlag=='initial_condition' or algoFlag=='7'):
 elif(algoFlag=='frontier_points' or algoFlag=='8'):
     iAlgo=8
     algoName = 'frontier_points'
+elif(algoFlag=='frontier_points_change_temperature' or algoFlag=='9'):
+    iAlgo=9
+    algoName = 'frontier_points_change_temperature'
 
 else:
     print('Error: wrong algorithm flag. ')
 
 # parameters
-T=100.0#400
+T=300.0#400
 temperature =  T * unit.kelvin#300 * unit.kelvin
 kT = kB * temperature
 
@@ -104,7 +107,8 @@ if iAlgo >0:
 if iAlgo ==0:
     dataFileName='Data/'+str(algoName)+'/Traj/'
 else:
-    dataFileName='Data/'+str(algoName)+'/Tsc'+str(int(TemperatureTAMDFactor))+'MS'+str(int(massScale))+'/Traj/'
+    #dataFileName='Data/'+str(algoName)+'/Tsc'+str(int(TemperatureTAMDFactor))+'MS'+str(int(massScale))+'/Traj/'
+    dataFileName='Data/'+str(algoName)+'/Traj/'
 
 newpath = os.path.join(os.getcwd(),dataFileName)#+ general_sampler.algorithmName
 if not os.path.exists(newpath):
@@ -112,6 +116,8 @@ if not os.path.exists(newpath):
 
 # simulation class sampler takes integrator class with chosen parameters as input
 integrator=integrator.Integrator( model=mdl, gamma=gamma, temperature=temperature, temperatureAlpha=temperatureAlpha, dt=dt, massScale=massScale, gammaScale=gammaScale, kappaScale=kappaScale)
+
+
 general_sampler=sampler.Sampler(model=mdl, integrator=integrator, algorithm=iAlgo, dataFileName=dataFileName)
 
 # nrSteps is number of steps for each nrRep , and iterate the algo nrIterations times - total simulation time is nrSteps x nrIterations

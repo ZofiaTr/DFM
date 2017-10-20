@@ -48,7 +48,7 @@ class Sampler():
 
         self.timeAv=av.Average(0.0)
 
-        self.dim=2
+        self.dim=3
         self.dimCV=1
 
         self.method='TMDiffmap'#'DiffMap'
@@ -72,6 +72,10 @@ class Sampler():
         self.sampled_trajectory=np.array([self.integrator.x0.value_in_unit(self.model.x_unit)])
         self.landmarkedStates=None
 
+        self.changeTemperature = 0
+
+
+
         if self.algorithm==0:
             self.algorithmName='std'
         if self.algorithm==1:
@@ -90,13 +94,17 @@ class Sampler():
             self.algorithmName='initial_condition'
         if self.algorithm==8:
             self.algorithmName='frontier_points'
+        if self.algorithm==9:
+            self.algorithmName='frontier_points_change_temperature'
 
 
 
-
+        #print(self.model.testsystem.topology)
         self.topology = md.Topology().from_openmm(self.model.testsystem.topology)
         self.trajSave= md.Trajectory(self.model.positions.value_in_unit(self.model.x_unit), self.topology)
         self.savingFolder=dataFileName
+
+
 
     def resetInitialConditions(self):
             self.integrator.x0=self.integrator.xEnd
@@ -146,6 +154,10 @@ class Sampler():
         if self.algorithm==8:
             # working
             self.runFrontierPoints(nrSteps, nrIterations, nrRep)
+        if self.algorithm==9:
+            # in progress
+            self.changeTemperature = 1
+            self.runFrontierPoints(nrSteps, nrIterations, nrRep)
 
 
         #TBD add free energy sampling run
@@ -153,6 +165,7 @@ class Sampler():
 ######----------------- STD ---------------------------------
 
     def runStd(self, nrSteps, nrIterations, nrRep):
+
 
             #reset time
             self.timeAv.clear()
@@ -187,8 +200,8 @@ class Sampler():
                     # TODO: Also track initial and final velocities
 
                     self.integrator.x0=initialPositions[rep]
-                    xyz += self.integrator.run_langevin(nrSteps, save_interval=self.modNr) # local Python
-                    #xyz += self.integrator.run_openmm_langevin(nrSteps, save_interval=self.modNr)
+                    #xyz += self.integrator.run_langevin(nrSteps, save_interval=self.modNr) # local Python
+                    xyz += self.integrator.run_openmm_langevin(nrSteps, save_interval=self.modNr)
                     initialPositions[rep] = self.integrator.xEnd
 
 
@@ -200,6 +213,7 @@ class Sampler():
                 #self.sampled_trajectory=np.concatenate((tmpselftraj,np.copy(Xrep[-1].value_in_unit(self.model.x_unit))))
 
                 self.trajSave=md.Trajectory(xyz, self.topology)
+                print(self.trajSave)
 
                 print('Saving traj to file')
                 self.trajSave.save(self.savingFolder+'traj_'+repr(it)+'.h5')
@@ -785,6 +799,11 @@ class Sampler():
                         t_left=(self.timeAv.getAverage())*(nrIterations-it)
                         print(time.strftime("Time left %H:%M:%S", time.gmtime(t_left)))
 
+                #--------------------
+
+                if(self.changeTemperature == 1):
+                    self.T=self.T + (100*(np.cos(0.25*np.pi*it) + 1.0))*self.model.temperature_unit
+                    print("Changing temperature to T="+repr(self.T))
                 #------- simulate Langevin
 
                 xyz = list()
