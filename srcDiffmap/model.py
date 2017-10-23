@@ -393,7 +393,8 @@ class Model():
 
 
         K=1 * unit.kilocalories_per_mole / unit.angstrom**2
-        r0=1.550 * unit.angstroms
+        #r0=1.550 * unit.angstroms
+        r0=1.000 * unit.angstroms
         k=7.0 * unit.kilocalories_per_mole / unit.angstrom**2
         m1=39.948 * unit.amu
         m2=39.948 * unit.amu
@@ -415,7 +416,7 @@ class Model():
         system.addParticle(m2)
 
         # Add a harmonic bond.
-        #force = openmm.HarmonicBondForce()
+        force = openmm.HarmonicBondForce()
 
         ## double well with width w and height h centered at r0: two stable states at r=r0 and  r = r0 + 2w
         print("Lemon model: lemon-lice potential with 7 states and 1 reaction coordinate")
@@ -423,8 +424,8 @@ class Model():
 
         force.addGlobalParameter("k", k);
 
-        force.addBond(0, 1, [])#, r0, h, w)
-        system.addForce(force)
+        #force.addBond(0, 1, [])#, r0, h, w)
+        #system.addForce(force)
 
 
         if constraint:
@@ -432,17 +433,24 @@ class Model():
             system.addConstraint(0, 1, r0)
 
         # Set the positions.
-        positions = unit.Quantity(np.zeros([2, 3], np.float32), unit.angstroms)
-        positions[1, 0] = r0
+        positions = unit.Quantity(-0.5*np.ones([2, 3], np.float32), unit.angstroms)
+        #positions = unit.Quantity(0.1*np.ones([1, 3], np.float32), unit.angstroms)
+        positions[1, 1] = -r0
+        positions[0, 1] = -r0
 
         if use_central_potential:
             # Add a central restraining potential.
-            Kcentral = 1.0 * unit.kilocalories_per_mole / unit.nanometer**2
-            energy_expression = ' cos(K * atan(x / y)) + 10*( (x^2 + y^2 + z^2) -1)^2 ;'
+            Kcentral = 2.5 * unit.kilocalories_per_mole / unit.angstrom**2
+            K1 = 2.5 * unit.kilocalories_per_mole
+            R_p = 1.0 * unit.angstroms
+            #energy_expression = ' cos(K * atan(x / y)) + 10*( (x^2 + y^2 + z^2) -1)^2 ;'
+            energy_expression = 'K1 * cos(7 * atan(x / y)) + K2 * 10*( sqrt(x^2 + y^2) - R_param)^2 ;'
             #energy_expression = '(K/2.0) * ((x^2 + y^2 + z^2)-1)^2;'
-            energy_expression += 'K = testsystems_Diatom_Kcentral;'
+            #energy_expression += 'K2 = testsystems_Diatom_Kcentral;'
             force = openmm.CustomExternalForce(energy_expression)
-            force.addGlobalParameter('testsystems_Diatom_Kcentral', Kcentral)
+            force.addGlobalParameter('K2', Kcentral)
+            force.addGlobalParameter('K1', K1)
+            force.addGlobalParameter('R_param', R_p)
             force.addParticle(0, [])
             force.addParticle(1, [])
             system.addForce(force)
