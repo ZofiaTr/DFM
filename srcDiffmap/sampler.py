@@ -19,6 +19,7 @@ import Averages as av
 import model
 
 import scipy.sparse as sps
+import scipy.spatial.distance as scidist
 import rmsd
 
 import time
@@ -860,19 +861,35 @@ class Sampler():
                     ### RALF: PUT THE CONRNER SELECTION ALGORITHM HERE
                     ##################################################
 
-                    nrFEV = 3
+                    nrFEV = 2
                     # FEV is matrix with first nrFEV eigenvectors
                     FEV, q, qEstimated, potEn, kernelDiff=dominantEigenvectorDiffusionMap(traj, self.epsilon, self, self.T, self.method, nrOfFirstEigenVectors=nrFEV)
 
                     ### replace this part till **
-                    V1 = FEV[:,0]
-                    idxMaxV1 = np.argmax(np.abs(V1))
-                    tmp=traj[idxMaxV1].reshape(self.trajSave.xyz[0].shape)
+                    # select a random point and compute distances to it
+                    m = np.shape(FEV)[0]
+                    idx_corner = np.random.randint(m)
+                    dist = scidist.cdist(FEV[[idx_corner],:], FEV)[0]
+                    # find first cornerstone
+                    idx_corner = [np.argmax(dist)]
+                    # iteration to find the other cornerstones
+                    for k in np.arange(1, nrRep):
+                        # update minimum distance to existing cornerstones
+                        if(k>1):
+                            dist = np.minimum(dist, scidist.cdist(FEV[[idx_corner[-1]],:], FEV)[0])
+                        else:
+                            dist = scidist.cdist(FEV[idx_corner,:], FEV)[0]
+                        # select new cornerstone
+                        idx_corner.append(np.argmax(dist))
+
+                    ####
+                    tmp=traj[idx_corner].reshape(np.append(nrRep, self.trajSave.xyz[0].shape))
                     frontierPoint = tmp* self.integrator.model.x_unit
 
-                    self.integrator.x0=frontierPoint
+                    self.integrator.x0=frontierPoint  # what does this do? frontier point should be an array of initial conditions, one for each replica.
+                                                      # I hope it gives every replica the right initial condition.
                     #every replica can get different initial condition
-                    initialPositions=[frontierPoint for rep in range(0,nrRep)]
+                    initialPositions=[frontierPoint[rep] for rep in range(0,nrRep)]
                     # ** #################################################
 
                 if(it>0):
@@ -976,8 +993,11 @@ def dominantEigenvectorDiffusionMap(tr, eps, sampler, T, method, nrOfFirstEigenV
 
             ix = lambdas.argsort()[::-1]
             X_se= eigenvectors[:,ix]
+            lambdas = lambdas[ix]
 
             v1=np.real(X_se[:,1:])
+            # scale eigenvectors with eigenvalues
+            v1 = np.dot(v1,np.diag(lambdas[1:]))
 
         else:
             print('Error in sampler class: dimension_reduction function did not match any method.\n CHoose from: TMDiffmap, PCA, DiffMap')
