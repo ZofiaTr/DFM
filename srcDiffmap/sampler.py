@@ -850,7 +850,7 @@ class Sampler():
                     idxMaxV1 = np.argmax(np.abs(V1))
                     tmp=traj[idxMaxV1].reshape(self.trajSave.xyz[0].shape)
                     frontierPoint = tmp* self.integrator.model.x_unit
-                    #------- simulate eftad and reset initial positions for the next iteration
+
 
                     self.integrator.x0=frontierPoint
                     initialPositions=[frontierPoint for rep in range(0,nrRep)]
@@ -863,17 +863,17 @@ class Sampler():
                     nrFEV = 3
                     # FEV is matrix with first nrFEV eigenvectors
                     FEV, q, qEstimated, potEn, kernelDiff=dominantEigenvectorDiffusionMap(traj, self.epsilon, self, self.T, self.method, nrOfFirstEigenVectors=nrFEV)
-                    
+
+                    ### replace this part till **
                     V1 = FEV[:,0]
                     idxMaxV1 = np.argmax(np.abs(V1))
                     tmp=traj[idxMaxV1].reshape(self.trajSave.xyz[0].shape)
                     frontierPoint = tmp* self.integrator.model.x_unit
-                    #------- simulate eftad and reset initial positions for the next iteration
 
                     self.integrator.x0=frontierPoint
                     #every replica can get different initial condition
                     initialPositions=[frontierPoint for rep in range(0,nrRep)]
-                    ##################################################
+                    # ** #################################################
 
                 if(it>0):
                     tavEnd=time.time()
