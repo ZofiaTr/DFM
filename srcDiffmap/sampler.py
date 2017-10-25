@@ -842,13 +842,15 @@ class Sampler():
                 traj =  self.trajSave.xyz.reshape((self.trajSave.xyz.shape[0], self.trajSave.xyz.shape[1]*self.trajSave.xyz.shape[2]))
 
                 while(len(traj)>1000):
-                    traj=tra[::2]
+                    traj=traj[::2]
                 #------ compute CV and reset initial conditions------------------------------
 
                 if(self.corner==0):
                     V1, q, qEstimated, potEn, kernelDiff=dominantEigenvectorDiffusionMap(traj, self.epsilon, self, self.T, self.method)
 
+
                     idxMaxV1 = np.argmax(np.abs(V1))
+
                     tmp=traj[idxMaxV1].reshape(self.trajSave.xyz[0].shape)
                     frontierPoint = tmp* self.integrator.model.x_unit
 
@@ -863,7 +865,9 @@ class Sampler():
 
                     nrFEV = 2
                     # FEV is matrix with first nrFEV eigenvectors
-                    FEV, q, qEstimated, potEn, kernelDiff=dominantEigenvectorDiffusionMap(traj, self.epsilon, self, self.T, self.method, nrOfFirstEigenVectors=nrFEV)
+                    FEV, q, qEstimated, potEn, kernelDiff=dominantEigenvectorDiffusionMap(traj, self.epsilon, self, self.T, self.method, nrOfFirstEigenVectors=nrFEV+1)
+
+            
 
                     ### replace this part till **
                     # select a random point and compute distances to it
@@ -981,7 +985,7 @@ def dominantEigenvectorDiffusionMap(tr, eps, sampler, T, method, nrOfFirstEigenV
             #X_se = manifold.spectral_embedding(P, n_components = 1, eigen_solver = 'arpack')
             #V1=X_se[:,0]
 
-            lambdas, V = sps.linalg.eigsh(P, k=(nrOfFirstEigenVectors+1))#, which='LM' )
+            lambdas, V = sps.linalg.eigsh(P, k=(nrOfFirstEigenVectors))#, which='LM' )
             ix = lambdas.argsort()[::-1]
             X_se= V[:,ix]
 
@@ -992,16 +996,18 @@ def dominantEigenvectorDiffusionMap(tr, eps, sampler, T, method, nrOfFirstEigenV
         elif method =='TMDiffmap': #target measure diffusion map
 
             P, qEstimated, kernelDiff = dm.compute_unweighted_P( tr,eps, sampler, qTargetDistribution )
-            lambdas, eigenvectors = sps.linalg.eigs(P, k=(nrOfFirstEigenVectors+1))#, which='LM' )
+            lambdas, eigenvectors = sps.linalg.eigs(P, k=(nrOfFirstEigenVectors))#, which='LM' )
             lambdas = np.real(lambdas)
 
             ix = lambdas.argsort()[::-1]
             X_se= eigenvectors[:,ix]
             lambdas = lambdas[ix]
 
+
             v1=np.real(X_se[:,1:])
             # scale eigenvectors with eigenvalues
             v1 = np.dot(v1,np.diag(lambdas[1:]))
+
 
         else:
             print('Error in sampler class: dimension_reduction function did not match any method.\n CHoose from: TMDiffmap, PCA, DiffMap')
