@@ -869,9 +869,13 @@ class Sampler():
                     # select a random point and compute distances to it
                     m = np.shape(FEV)[0]
                     idx_corner = np.random.randint(m)
+
                     dist = scidist.cdist(FEV[[idx_corner],:], FEV)[0]
+
                     # find first cornerstone
                     idx_corner = [np.argmax(dist)]
+                    # print('idx_corner ')
+                    # print(idx_corner)
                     # iteration to find the other cornerstones
                     for k in np.arange(1, nrRep):
                         # update minimum distance to existing cornerstones
@@ -886,7 +890,7 @@ class Sampler():
                     tmp=traj[idx_corner].reshape(np.append(nrRep, self.trajSave.xyz[0].shape))
                     frontierPoint = tmp* self.integrator.model.x_unit
 
-                    self.integrator.x0=frontierPoint  # what does this do? frontier point should be an array of initial conditions, one for each replica.
+                    #self.integrator.x0=frontierPoint  # what does this do? frontier point should be an array of initial conditions, one for each replica.
                                                       # I hope it gives every replica the right initial condition.
                     #every replica can get different initial condition
                     initialPositions=[frontierPoint[rep] for rep in range(0,nrRep)]
