@@ -73,6 +73,7 @@ class Sampler():
         self.landmarkedStates=None
 
         self.changeTemperature = 0
+        self.corner = 0
 
 
 
@@ -96,6 +97,8 @@ class Sampler():
             self.algorithmName='frontier_points'
         if self.algorithm==9:
             self.algorithmName='frontier_points_change_temperature'
+        if self.algorithm==10:
+            self.algorithmName='frontier_points_corner'
 
 
 
@@ -157,6 +160,11 @@ class Sampler():
         if self.algorithm==9:
             # in progress
             self.changeTemperature = 1
+            self.runFrontierPoints(nrSteps, nrIterations, nrRep)
+        if self.algorithm==10:
+            # in progress
+            self.corner = 1
+
             self.runFrontierPoints(nrSteps, nrIterations, nrRep)
 
 
@@ -779,7 +787,7 @@ class Sampler():
             print('runFrontierPoints: replicated std dynamics with '+repr(nrRep)+' replicas')
             print('reset initial condition by maximizing the domninant eigenvector obtained by diffusion map')
 
-
+            #intialisation
             initialPositions=[self.integrator.x0 for rep in range(0,nrRep)]
             #Xit=[self.integrator.x0 for i in range(nrRep*nrSteps)]
 
@@ -812,6 +820,7 @@ class Sampler():
 
                     # TODO: Also track initial and final velocities
 
+                    # each intial replica has initial condition
                     self.integrator.x0=initialPositions[rep]
 
                     xyz_iter=self.integrator.run_langevin(nrSteps, save_interval=self.modNr) # local Python
@@ -833,19 +842,38 @@ class Sampler():
 
                 while(len(traj)>1000):
                     traj=tra[::2]
-                #------ compute CV ------------------------------
+                #------ compute CV and reset initial conditions------------------------------
 
-                V1, q, qEstimated, potEn, kernelDiff=dominantEigenvectorDiffusionMap(traj, self.epsilon, self, self.T, self.method)
+                if(self.corner==0):
+                    V1, q, qEstimated, potEn, kernelDiff=dominantEigenvectorDiffusionMap(traj, self.epsilon, self, self.T, self.method)
 
-                idxMaxV1 = np.argmax(np.abs(V1))
-                tmp=traj[idxMaxV1].reshape(self.trajSave.xyz[0].shape)
-                frontierPoint = tmp* self.integrator.model.x_unit
-                #------- simulate eftad and reset initial positions for the next iteration
+                    idxMaxV1 = np.argmax(np.abs(V1))
+                    tmp=traj[idxMaxV1].reshape(self.trajSave.xyz[0].shape)
+                    frontierPoint = tmp* self.integrator.model.x_unit
+                    #------- simulate eftad and reset initial positions for the next iteration
 
-                self.integrator.x0=frontierPoint
+                    self.integrator.x0=frontierPoint
+                    initialPositions=[frontierPoint for rep in range(0,nrRep)]
 
-                initialPositions=[frontierPoint for rep in range(0,nrRep)]
 
+                else:
+                    ### RALF: PUT THE CONRNER SELECTION ALGORITHM HERE
+                    ##################################################
+
+                    nrFEV = 3
+                    # FEV is matrix with first nrFEV eigenvectors
+                    FEV, q, qEstimated, potEn, kernelDiff=dominantEigenvectorDiffusionMap(traj, self.epsilon, self, self.T, self.method, nrOfFirstEigenVectors=nrFEV)
+                    
+                    V1 = FEV[:,0]
+                    idxMaxV1 = np.argmax(np.abs(V1))
+                    tmp=traj[idxMaxV1].reshape(self.trajSave.xyz[0].shape)
+                    frontierPoint = tmp* self.integrator.model.x_unit
+                    #------- simulate eftad and reset initial positions for the next iteration
+
+                    self.integrator.x0=frontierPoint
+                    #every replica can get different initial condition
+                    initialPositions=[frontierPoint for rep in range(0,nrRep)]
+                    ##################################################
 
                 if(it>0):
                     tavEnd=time.time()
@@ -893,7 +921,7 @@ def reshapeDataBack(traj):
 ###########################################################
 
 
-def dominantEigenvectorDiffusionMap(tr, eps, sampler, T, method):
+def dominantEigenvectorDiffusionMap(tr, eps, sampler, T, method, nrOfFirstEigenVectors=2):
 
         print("Temperature in dominantEigenvectorDiffusionMap is "+repr(T))
 
@@ -914,6 +942,9 @@ def dominantEigenvectorDiffusionMap(tr, eps, sampler, T, method):
             qEstimated = qTargetDistribution
             kernelDiff=[]
 
+            if(nrOfFirstEigenVectors>1):
+                print('For PCA, nrOfFirstEigenVectors must be 1')
+
         elif method == 'Diffmap':
 
             if isinstance(tr, md.Trajectory):
@@ -929,23 +960,24 @@ def dominantEigenvectorDiffusionMap(tr, eps, sampler, T, method):
             #X_se = manifold.spectral_embedding(P, n_components = 1, eigen_solver = 'arpack')
             #V1=X_se[:,0]
 
-            lambdas, V = sps.linalg.eigsh(P, k=2)#, which='LM' )
+            lambdas, V = sps.linalg.eigsh(P, k=(nrOfFirstEigenVectors+1))#, which='LM' )
             ix = lambdas.argsort()[::-1]
             X_se= V[:,ix]
 
-            v1=X_se[:,1]
+            v1=X_se[:,1:]
             #v2=X_se[:,2]
             #V2=X_se[:,1]
 
         elif method =='TMDiffmap': #target measure diffusion map
 
             P, qEstimated, kernelDiff = dm.compute_unweighted_P( tr,eps, sampler, qTargetDistribution )
-            lambdas, eigenvectors = sps.linalg.eigs(P, k=2)#, which='LM' )
+            lambdas, eigenvectors = sps.linalg.eigs(P, k=(nrOfFirstEigenVectors+1))#, which='LM' )
             lambdas = np.real(lambdas)
 
             ix = lambdas.argsort()[::-1]
             X_se= eigenvectors[:,ix]
-            v1=np.real(X_se[:,1])
+
+            v1=np.real(X_se[:,1:])
 
         else:
             print('Error in sampler class: dimension_reduction function did not match any method.\n CHoose from: TMDiffmap, PCA, DiffMap')

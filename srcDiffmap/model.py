@@ -153,7 +153,7 @@ class Model():
         print("Dimer model: double-well with 2 states")
         print("State1: r="+repr(r0 ))
         print("State2: r="+repr(r0 + 2.0*w))
-        force = openmm.CustomBondForce("h * ( 1.0 - (( r - r0 - w )^2 / w^2) )^2");
+        force = openmm.CustomBondForce("h * ( 1.0 - (( r - r0 - w )^2 / w^2) )^2 ");
 
         force.addGlobalParameter("r0", r0);
         force.addGlobalParameter("h", h);

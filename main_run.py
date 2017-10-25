@@ -74,6 +74,9 @@ elif(algoFlag=='frontier_points' or algoFlag=='8'):
 elif(algoFlag=='frontier_points_change_temperature' or algoFlag=='9'):
     iAlgo=9
     algoName = 'frontier_points_change_temperature'
+elif(algoFlag=='frontier_points_corner' or algoFlag=='10'):
+    iAlgo=10
+    algoName = 'frontier_points_corner'
 
 else:
     print('Error: wrong algorithm flag. ')
