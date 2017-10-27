@@ -168,18 +168,21 @@ def compute_weight_target_distribution(target_distribution, qImoportanceSampling
     return weight, Ntilde
 
 
-def computeAverages(x, f, units=1.0):
+def computeAverages(x, f, units=1.0, vectorFunction=False):
 
-    Vef=np.zeros(len(x))
-    ci=0
-    for xi in x:
+    if vectorFunction == True:
+        return np.mean(f)
+    else:
+        Vef=np.zeros(len(x))
+        ci=0
+        for xi in x:
 
-        Vef[ci]=f(xi)/units
-        ci=ci+1
+            Vef[ci]=f(xi)/units
+            ci=ci+1
 
-    return np.mean(Vef)
+        return np.mean(Vef)
 
-def computeUnbiasedAverages(x, f, weight, units=1.0):
+def computeUnbiasedAverages(x, f, weight, units=1.0, vectorFunction=False):
 
     Ntilde=np.mean(weight)
 
@@ -188,9 +191,16 @@ def computeUnbiasedAverages(x, f, weight, units=1.0):
     assert len(Vef)==len(weight)
 
     ci=0
-    for xi in x:
+    if vectorFunction==False:
+        for xi in x:
 
-        Vef[ci]=weight[ci]*f(xi)/units
-        ci=ci+1
+            Vef[ci]=weight[ci]*f(xi)/units
+            ci=ci+1
+    else:
+        for xi in x:
+
+            Vef[ci]=weight[ci]*f[ci]/units
+            ci=ci+1
+
 
     return np.mean(Vef)/Ntilde

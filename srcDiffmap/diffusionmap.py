@@ -158,6 +158,10 @@ def myRMSDmetric(arr1, arr2):
 
     return d
 
+
+
+
+
 def compute_P(kernel, X):
 
     alpha = 0.5;
@@ -341,6 +345,28 @@ def get_levelsets(data, K, q, V1):
                 levelsets.append(levelset_k[0])
 
     return levelsets, levels
+
+def get_levelset_onePoint(idx, width, V1):
+
+
+    #q=np.array(q)
+
+
+    deltaMax=2*width
+
+    #print(np.abs(V1 - V1[idx]))
+
+
+
+    if(V1[idx] ==0):
+        tmp=( np.where(np.abs(V1 - V1[idx]) < width))
+    else:
+        tmp=( np.where(np.abs(V1 - V1[idx])/np.abs(V1[idx]) < width))
+
+    levelset= tmp[0]
+
+
+    return np.asarray(levelset)
 
 
 def sort_landmarks(data, landmarks):
