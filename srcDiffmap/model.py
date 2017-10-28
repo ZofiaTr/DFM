@@ -11,9 +11,9 @@ import openmmtools
 #i = importlib.import_module("matplotlib.text")
 
 
-#modelName='Alanine'
+modelName='Alanine'
 #modelName='Lemon'
-modelName='Dimer'
+#modelName='Dimer'
 
 #modelName='Thomson'
 
@@ -125,8 +125,8 @@ class Model():
 
         K=1 * unit.kilocalories_per_mole / unit.angstrom**2#290.1 * unit.kilocalories_per_mole / unit.angstrom**2
         r0=1.550 * unit.angstroms
-        w=0.5 * unit.angstroms
-        h=0.05 * unit.kilocalories_per_mole / unit.angstrom**2
+        w=1.0 * unit.angstroms
+        h=0.1 * unit.kilocalories_per_mole / unit.angstrom**2
         m1=39.948 * unit.amu
         m2=39.948 * unit.amu
         constraint=False

@@ -38,7 +38,7 @@ class Sampler():
     """
 
 
-    def __init__(self, model, integrator, algorithm=0, dataFileName='/Data'):
+    def __init__(self, model, integrator, algorithm=0, dataFileName='/Data', dataFrontierPointsName = '/FrontierPoints'):
 
         self.model=model
         self.algorithm=algorithm
@@ -55,7 +55,7 @@ class Sampler():
         self.method='TMDiffmap'#'DiffMap'
 
         #diffusion maps constants
-        self.epsilon=0.5 #0.05
+        self.epsilon=2.0 #0.05
         self.epsilon_Max=self.epsilon* (2.0**4)
 
         #linear approximation
@@ -63,7 +63,7 @@ class Sampler():
 
         self.nrDecorrSteps=1
 
-        self.modNr=100
+        self.modNr=10
         self.modEFTAD=10
 
         self.Traj_LM_save=None
@@ -106,7 +106,8 @@ class Sampler():
         #print(self.model.testsystem.topology)
         self.topology = md.Topology().from_openmm(self.model.testsystem.topology)
         self.trajSave= md.Trajectory(self.model.positions.value_in_unit(self.model.x_unit), self.topology)
-        self.savingFolder=dataFileName
+        self.savingFolder=dataFileName+'/'+self.model.modelName
+        self.savingFolderFrontierPoints = dataFrontierPointsName
 
 
 
@@ -164,6 +165,7 @@ class Sampler():
             self.runFrontierPoints(nrSteps, nrIterations, nrRep)
         if self.algorithm==10:
             # in progress
+            self.changeTemperature = 1
             self.corner = 1
 
             self.runFrontierPoints(nrSteps, nrIterations, nrRep)
@@ -809,10 +811,15 @@ class Sampler():
                         print(time.strftime("Time left %H:%M:%S", time.gmtime(t_left)))
 
                 #--------------------
-
+                #change temperature for the integrator-> the target termperature (passed to diffusionmaps) remains unchanged
                 if(self.changeTemperature == 1):
-                    self.T=self.T + (100*(np.cos(0.25*np.pi*it) + 1.0))*self.model.temperature_unit
-                    print("Changing temperature to T="+repr(self.T))
+                    if(it>0):
+                        T = self.T.value_in_unit(self.model.temperature_unit)
+
+                        T= T*(0.01+ ((0.25*np.abs(np.sin(0.2*np.pi*it))+1.0)))
+
+                        self.integrator.temperature = np.asscalar(T) * self.model.temperature_unit
+                        print("Changing temperature to T="+repr(self.integrator.temperature))
                 #------- simulate Langevin
 
                 xyz = list()
@@ -824,13 +831,21 @@ class Sampler():
                     # each intial replica has initial condition
                     self.integrator.x0=initialPositions[rep]
 
-                    xyz_iter=self.integrator.run_langevin(nrSteps, save_interval=self.modNr) # local Python
+                    #xyz_iter=self.integrator.run_langevin(nrSteps, save_interval=self.modNr) # local Python
+                    xyz_iter = self.integrator.run_openmm_langevin(nrSteps, save_interval=self.modNr)
                     xyz += xyz_iter
                     # #only for replicas
                     # initialPositions[rep] = self.integrator.xEnd
 
                 # creat md traj object
                 self.trajSave=md.Trajectory(xyz, self.topology)
+
+                #DEBUG
+                # for i in range(len(self.trajSave)):
+                #     print(md.rmsd(self.trajSave[0], self.trajSave[i]))
+
+                # print('DEBUG: Saving traj to file')
+                # self.trajSave.save(self.savingFolder+'traj_'+repr(it)+'.h5')
                 #------ rmsd ------------------------------
 
 
@@ -840,7 +855,7 @@ class Sampler():
                 #------ reshape data ------------------------------
 
                 traj =  self.trajSave.xyz.reshape((self.trajSave.xyz.shape[0], self.trajSave.xyz.shape[1]*self.trajSave.xyz.shape[2]))
-
+                print('Current shape of traj is '+repr(traj.shape))
                 while(len(traj)>1000):
                     traj=traj[::2]
                 #------ compute CV and reset initial conditions------------------------------
@@ -848,16 +863,13 @@ class Sampler():
                 if(self.corner==0):
                     V1, q, qEstimated, potEn, kernelDiff=dominantEigenvectorDiffusionMap(traj, self.epsilon, self, self.T, self.method)
 
-
                     idxMaxV1 = np.argmax(np.abs(V1))
 
                     tmp=traj[idxMaxV1].reshape(self.trajSave.xyz[0].shape)
                     frontierPoint = tmp* self.integrator.model.x_unit
 
-
                     self.integrator.x0=frontierPoint
                     initialPositions=[frontierPoint for rep in range(0,nrRep)]
-
 
                 else:
                     ### RALF: PUT THE CONRNER SELECTION ALGORITHM HERE
@@ -866,8 +878,6 @@ class Sampler():
                     nrFEV = 2
                     # FEV is matrix with first nrFEV eigenvectors
                     FEV, q, qEstimated, potEn, kernelDiff=dominantEigenvectorDiffusionMap(traj, self.epsilon, self, self.T, self.method, nrOfFirstEigenVectors=nrFEV+1)
-
-            
 
                     ### replace this part till **
                     # select a random point and compute distances to it
@@ -892,13 +902,21 @@ class Sampler():
 
                     ####
                     tmp=traj[idx_corner].reshape(np.append(nrRep, self.trajSave.xyz[0].shape))
-                    frontierPoint = tmp* self.integrator.model.x_unit
+                    frontierPoint = tmp
+                    frontierPointSave = tmp
+
+                    #every replica can get different initial condition
+                    initialPositions=[frontierPoint[rep]* self.integrator.model.x_unit for rep in range(0,nrRep)]
+
 
                     #self.integrator.x0=frontierPoint  # what does this do? frontier point should be an array of initial conditions, one for each replica.
                                                       # I hope it gives every replica the right initial condition.
-                    #every replica can get different initial condition
-                    initialPositions=[frontierPoint[rep] for rep in range(0,nrRep)]
+
                     # ** #################################################
+
+                    frontierPointMDTraj=md.Trajectory(frontierPoint, self.topology)
+                    print('Saving frontier points')
+                    frontierPointMDTraj.save(self.savingFolderFrontierPoints+'/frontierPoints_at_iteration_'+repr(it)+'.h5')
 
                 if(it>0):
                     tavEnd=time.time()
@@ -967,7 +985,7 @@ def dominantEigenvectorDiffusionMap(tr, eps, sampler, T, method, nrOfFirstEigenV
             qEstimated = qTargetDistribution
             kernelDiff=[]
 
-            if(nrOfFirstEigenVectors>1):
+            if(nrOfFirstEigenVectors>2):
                 print('For PCA, nrOfFirstEigenVectors must be 1')
 
         elif method == 'Diffmap':

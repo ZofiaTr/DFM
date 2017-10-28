@@ -55,6 +55,7 @@ class Integrator():
 
          # Create a BAOAB integrator
          self.langevin_integrator = openmmtools.integrators.LangevinIntegrator(temperature=self.temperature, collision_rate=self.gamma, timestep=self.dt, splitting='V R O R V')
+
          # Create a Context for integration
          self.context = openmm.Context(self.model.system, self.langevin_integrator)
 
@@ -92,6 +93,8 @@ class Integrator():
             x[0,:]= zeroV
 
         #print(x)
+
+        self.kT = kB * self.temperature
 
         v = self.v0
 
@@ -159,6 +162,9 @@ class Integrator():
         if n_steps % save_interval != 0:
             raise Exception("n_steps (%d) should be an integral multiple of save_interval (%d)" % (n_steps, save_interval))
 
+        #reset temperature if necessary
+        self.langevin_integrator.temperature=self.temperature
+        
         # Intialize positions and velocities
         self.context.setPositions(self.x0)
         self.context.setVelocities(self.v0)

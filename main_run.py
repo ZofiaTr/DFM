@@ -1,6 +1,6 @@
 """
  python  main_run_mpi.py arg
- example: python main_run.py --algorithm 7 --iterations 10 --replicas 1 --nrsteps 1000
+ example: python main_run.py --algorithm 10 --iterations 10 --replicas 1 --nrsteps 1000
 """
 
 
@@ -20,7 +20,9 @@ from openmmtools.constants import kB
 import model
 
 #create model defined in class model
-mdl=model.Model('Dimer')
+
+modelName = 'Alanine'
+mdl=model.Model(modelName)
 
 print(mdl.x_unit)
 print(mdl.modelname)
@@ -82,13 +84,13 @@ else:
     print('Error: wrong algorithm flag. ')
 
 # parameters
-T=300.0#400
+T=300.0 #400
 temperature =  T * unit.kelvin#300 * unit.kelvin
 kT = kB * temperature
 
 
 gamma = 1.0 / unit.picosecond
-dt = 2 * unit.femtosecond#2.0 * unit.femtosecond
+dt = 2.0 * unit.femtosecond#2.0 * unit.femtosecond
 
 TemperatureTAMDFactor=30.0
 massScale=50.0
@@ -107,21 +109,26 @@ if iAlgo >0:
     print('Mass alpha is '+repr(massScale)+'x Mass')
 
 #create folders to save the data
-if iAlgo ==0:
-    dataFileName='Data/'+str(algoName)+'/Traj/'
-else:
-    #dataFileName='Data/'+str(algoName)+'/Tsc'+str(int(TemperatureTAMDFactor))+'MS'+str(int(massScale))+'/Traj/'
-    dataFileName='Data/'+str(algoName)+'/Traj/'
+
+#dataFileName='Data/'+str(algoName)+'/Tsc'+str(int(TemperatureTAMDFactor))+'MS'+str(int(massScale))+'/Traj/'
+dataFileName='Data/'+str(modelName)+'/'+str(algoName)+'/Traj/'
+dataFileNameFrontierPoints='Data/'+str(modelName)+'/'+str(algoName)+'/Traj/FrontierPoints/'
 
 newpath = os.path.join(os.getcwd(),dataFileName)#+ general_sampler.algorithmName
 if not os.path.exists(newpath):
     os.makedirs(newpath)
 
+newpath = os.path.join(os.getcwd(),dataFileNameFrontierPoints)#+ general_sampler.algorithmName
+if not os.path.exists(newpath):
+    os.makedirs(newpath)
+
+
+
 # simulation class sampler takes integrator class with chosen parameters as input
 integrator=integrator.Integrator( model=mdl, gamma=gamma, temperature=temperature, temperatureAlpha=temperatureAlpha, dt=dt, massScale=massScale, gammaScale=gammaScale, kappaScale=kappaScale)
 
 
-general_sampler=sampler.Sampler(model=mdl, integrator=integrator, algorithm=iAlgo, dataFileName=dataFileName)
+general_sampler=sampler.Sampler(model=mdl, integrator=integrator, algorithm=iAlgo, dataFileName=dataFileName, dataFrontierPointsName = dataFileNameFrontierPoints)
 
 # nrSteps is number of steps for each nrRep , and iterate the algo nrIterations times - total simulation time is nrSteps x nrIterations
 nrSteps=args.nrSteps
