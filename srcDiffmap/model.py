@@ -442,14 +442,16 @@ class Model():
             # Add a central restraining potential.
             Kcentral = 2.5 * unit.kilocalories_per_mole / unit.angstrom**2
             K1 = 2.5 * unit.kilocalories_per_mole
+            K_z = 10.0 * unit.kilocalories_per_mole
             R_p = 1.0 * unit.angstroms
             #energy_expression = ' cos(K * atan(x / y)) + 10*( (x^2 + y^2 + z^2) -1)^2 ;'
-            energy_expression = 'K1 * cos(7 * atan(x / y)) + K2 * 10*( sqrt(x^2 + y^2) - R_param)^2 ;'
+            energy_expression = 'K1 * cos(7 * atan(x / y)) + K2 * 10*( sqrt(x^2 + y^2) - R_param)^2 + K_z * z^2;'
             #energy_expression = '(K/2.0) * ((x^2 + y^2 + z^2)-1)^2;'
             #energy_expression += 'K2 = testsystems_Diatom_Kcentral;'
             force = openmm.CustomExternalForce(energy_expression)
             force.addGlobalParameter('K2', Kcentral)
             force.addGlobalParameter('K1', K1)
+            force.addGlobalParameter('K_z', K_z)
             force.addGlobalParameter('R_param', R_p)
             force.addParticle(0, [])
             force.addParticle(1, [])

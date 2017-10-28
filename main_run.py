@@ -20,7 +20,7 @@ from openmmtools.constants import kB
 import model
 
 #create model defined in class model
-mdl=model.Model('Lemon')
+mdl=model.Model('Dimer')
 
 print(mdl.x_unit)
 print(mdl.modelname)
