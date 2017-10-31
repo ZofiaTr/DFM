@@ -20,6 +20,7 @@ from openmmtools.constants import kB
 import model
 
 #create model defined in class model
+
 modelName = 'Alanine'
 mdl=model.Model(modelName)
 
