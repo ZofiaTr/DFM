@@ -1,6 +1,6 @@
 """
  python  main_run_mpi.py arg
- example: python main_run.py --algorithm 10 --iterations 10 --replicas 1 --nrsteps 1000
+ example: python main_run.py --algorithm 11 --iterations 10 --replicas 5 --nrsteps 10000
 """
 
 
@@ -78,6 +78,9 @@ elif(algoFlag=='frontier_points_change_temperature' or algoFlag=='9'):
 elif(algoFlag=='frontier_points_corner' or algoFlag=='10'):
     iAlgo=10
     algoName = 'frontier_points_corner'
+elif(algoFlag=='corner_temperature_change_off' or algoFlag=='11'):
+    iAlgo=11
+    algoName = 'corner_temperature_change_off'
 
 else:
     print('Error: wrong algorithm flag. ')
@@ -112,6 +115,7 @@ if iAlgo >0:
 #dataFileName='Data/'+str(algoName)+'/Tsc'+str(int(TemperatureTAMDFactor))+'MS'+str(int(massScale))+'/Traj/'
 dataFileName='Data/'+str(modelName)+'/'+str(algoName)+'/Traj/'
 dataFileNameFrontierPoints='Data/'+str(modelName)+'/'+str(algoName)+'/Traj/FrontierPoints/'
+dataFileNameEigenVectors='Data/'+str(modelName)+'/'+str(algoName)+'/Traj/Eigenvectors/'
 
 newpath = os.path.join(os.getcwd(),dataFileName)#+ general_sampler.algorithmName
 if not os.path.exists(newpath):
@@ -121,13 +125,18 @@ newpath = os.path.join(os.getcwd(),dataFileNameFrontierPoints)#+ general_sampler
 if not os.path.exists(newpath):
     os.makedirs(newpath)
 
+newpath = os.path.join(os.getcwd(),dataFileNameEigenVectors)#+ general_sampler.algorithmName
+if not os.path.exists(newpath):
+    os.makedirs(newpath)
+
+
 
 
 # simulation class sampler takes integrator class with chosen parameters as input
 integrator=integrator.Integrator( model=mdl, gamma=gamma, temperature=temperature, temperatureAlpha=temperatureAlpha, dt=dt, massScale=massScale, gammaScale=gammaScale, kappaScale=kappaScale)
 
 
-general_sampler=sampler.Sampler(model=mdl, integrator=integrator, algorithm=iAlgo, dataFileName=dataFileName, dataFrontierPointsName = dataFileNameFrontierPoints)
+general_sampler=sampler.Sampler(model=mdl, integrator=integrator, algorithm=iAlgo, dataFileName=dataFileName, dataFrontierPointsName = dataFileNameFrontierPoints, dataEigenVectorsName =dataFileNameEigenVectors)
 
 # nrSteps is number of steps for each nrRep , and iterate the algo nrIterations times - total simulation time is nrSteps x nrIterations
 nrSteps=args.nrSteps

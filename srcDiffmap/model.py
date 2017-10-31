@@ -10,6 +10,7 @@ from openmmtools import testsystems
 import openmmtools
 #i = importlib.import_module("matplotlib.text")
 
+from openmmtools.constants import kB
 
 modelName='Alanine'
 #modelName='Lemon'
@@ -83,6 +84,8 @@ class Model():
         self.velocity_unit = self.x_unit / self.time_unit
         self.mass_unit = unit.amu
         self.temperature_unit = unit.kelvin
+
+        self.kB_const = kB
 
         self.masses = 1.0 * self.mass_unit
 

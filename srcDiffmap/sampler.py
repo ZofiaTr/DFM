@@ -38,14 +38,14 @@ class Sampler():
     """
 
 
-    def __init__(self, model, integrator, algorithm=0, dataFileName='/Data', dataFrontierPointsName = '/FrontierPoints'):
+    def __init__(self, model, integrator, algorithm=0, dataFileName='/Data', dataFrontierPointsName = '/FrontierPoints', dataEigenVectorsName='/Eigenvectors'):
 
         self.model=model
         self.algorithm=algorithm
         self.integrator=integrator
 
         #set the temperature here - then passed to the integrator
-        self.T=self.integrator.temperature
+        self.T=self.integrator.kT#temperature
 
         self.timeAv=av.Average(0.0)
 
@@ -100,6 +100,8 @@ class Sampler():
             self.algorithmName='frontier_points_change_temperature'
         if self.algorithm==10:
             self.algorithmName='frontier_points_corner'
+        if self.algorithm==11:
+            self.algorithmName='corner_temperature_change_off'
 
 
 
@@ -108,6 +110,9 @@ class Sampler():
         self.trajSave= md.Trajectory(self.model.positions.value_in_unit(self.model.x_unit), self.topology)
         self.savingFolder=dataFileName+'/'+self.model.modelName
         self.savingFolderFrontierPoints = dataFrontierPointsName
+        self.savingFolderEigenvectors = dataEigenVectorsName
+
+        self.saveEigenvectors=1
 
 
 
@@ -166,6 +171,11 @@ class Sampler():
         if self.algorithm==10:
             # in progress
             self.changeTemperature = 1
+            self.corner = 1
+            self.runFrontierPoints(nrSteps, nrIterations, nrRep)
+        if self.algorithm==11:
+            # in progress
+            self.changeTemperature = 0
             self.corner = 1
 
             self.runFrontierPoints(nrSteps, nrIterations, nrRep)
@@ -796,6 +806,8 @@ class Sampler():
 
             ##############################
 
+            xyz_history = list()
+
             for it in range(0,nrIterations):
 
                 if(it>0):
@@ -814,9 +826,9 @@ class Sampler():
                 #change temperature for the integrator-> the target termperature (passed to diffusionmaps) remains unchanged
                 if(self.changeTemperature == 1):
                     if(it>0):
-                        T = self.T.value_in_unit(self.model.temperature_unit)
+                        T = self.T/self.model.temperature_unit / self.model.kB_const
 
-                        T= T*(0.01+ ((0.25*np.abs(np.sin(0.2*np.pi*it))+1.0)))
+                        T= T*(0.01+ ((0.25*np.abs(np.cos(0.2*np.pi*it))+1.0)))
 
                         self.integrator.temperature = np.asscalar(T) * self.model.temperature_unit
                         print("Changing temperature to T="+repr(self.integrator.temperature))
@@ -854,10 +866,21 @@ class Sampler():
                 #print(self.trajSave.xyz.shape)
                 #------ reshape data ------------------------------
 
-                traj =  self.trajSave.xyz.reshape((self.trajSave.xyz.shape[0], self.trajSave.xyz.shape[1]*self.trajSave.xyz.shape[2]))
-                print('Current shape of traj is '+repr(traj.shape))
-                while(len(traj)>1000):
-                    traj=traj[::2]
+
+                xyz_history += xyz
+
+                xyz_tr = xyz_history
+                trajMD=md.Trajectory(xyz_tr, self.topology)
+
+                print('Current shape of traj is '+repr(trajMD.xyz.shape))
+                while(len(trajMD)>2000):
+                    trajMD=trajMD[::5]
+                print('Sparsed shape of traj is '+repr(trajMD.xyz.shape))
+
+
+                traj =  trajMD.xyz.reshape((trajMD.xyz.shape[0], self.trajSave.xyz.shape[1]*self.trajSave.xyz.shape[2]))
+
+
                 #------ compute CV and reset initial conditions------------------------------
 
                 if(self.corner==0):
@@ -872,19 +895,17 @@ class Sampler():
                     initialPositions=[frontierPoint for rep in range(0,nrRep)]
 
                 else:
-                    ### RALF: PUT THE CONRNER SELECTION ALGORITHM HERE
-                    ##################################################
 
                     nrFEV = 2
-                    # FEV is matrix with first nrFEV eigenvectors
-                    FEV, q, qEstimated, potEn, kernelDiff=dominantEigenvectorDiffusionMap(traj, self.epsilon, self, self.T, self.method, nrOfFirstEigenVectors=nrFEV+1)
+                    # V1 is matrix with first nrFEV eigenvectors
+                    V1, q, qEstimated, potEn, kernelDiff=dominantEigenvectorDiffusionMap(traj, self.epsilon, self, self.T, self.method, nrOfFirstEigenVectors=nrFEV+1)
 
                     ### replace this part till **
                     # select a random point and compute distances to it
-                    m = np.shape(FEV)[0]
+                    m = np.shape(V1)[0]
                     idx_corner = np.random.randint(m)
 
-                    dist = scidist.cdist(FEV[[idx_corner],:], FEV)[0]
+                    dist = scidist.cdist(V1[[idx_corner],:], V1)[0]
 
                     # find first cornerstone
                     idx_corner = [np.argmax(dist)]
@@ -894,9 +915,9 @@ class Sampler():
                     for k in np.arange(1, nrRep):
                         # update minimum distance to existing cornerstones
                         if(k>1):
-                            dist = np.minimum(dist, scidist.cdist(FEV[[idx_corner[-1]],:], FEV)[0])
+                            dist = np.minimum(dist, scidist.cdist(V1[[idx_corner[-1]],:], V1)[0])
                         else:
-                            dist = scidist.cdist(FEV[idx_corner,:], FEV)[0]
+                            dist = scidist.cdist(V1[idx_corner,:], V1)[0]
                         # select new cornerstone
                         idx_corner.append(np.argmax(dist))
 
@@ -918,13 +939,25 @@ class Sampler():
                     print('Saving frontier points')
                     frontierPointMDTraj.save(self.savingFolderFrontierPoints+'/frontierPoints_at_iteration_'+repr(it)+'.h5')
 
+                if self.saveEigenvectors==1:
+                    trajShort=traj.reshape((traj.shape[0],self.trajSave.xyz.shape[1],self.trajSave.xyz.shape[2]))
+                    print('Shape of traj '+repr(traj.shape))
+                    self.trajEVSave=md.Trajectory(trajShort, self.topology)
+                    print('Saving traj used for diffmaps to file')
+                    self.trajEVSave.save(self.savingFolderEigenvectors+'traj_'+repr(it)+'.h5')
+                    print('Saving EV to file')
+                    np.save(self.savingFolderEigenvectors+'V1_'+repr(it), V1)
+
+
+                print('Saving traj to file')
+                self.trajSave.save(self.savingFolder+'traj_'+repr(it)+'.h5')
+
+
                 if(it>0):
                     tavEnd=time.time()
                     self.timeAv.addSample(tavEnd-tav0)
 
 
-                print('Saving traj to file')
-                self.trajSave.save(self.savingFolder+'traj_'+repr(it)+'.h5')
 
 
 #--------------------- Functions --------------------------------
@@ -966,7 +999,7 @@ def reshapeDataBack(traj):
 
 def dominantEigenvectorDiffusionMap(tr, eps, sampler, T, method, nrOfFirstEigenVectors=2):
 
-        print("Temperature in dominantEigenvectorDiffusionMap is "+repr(T))
+        print("Temperature in dominantEigenvectorDiffusionMap is "+repr(T/sampler.model.kB_const))
 
         qTargetDistribution=np.zeros(len(tr))
         E=np.zeros(len(tr))
