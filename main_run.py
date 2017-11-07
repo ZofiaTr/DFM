@@ -1,6 +1,6 @@
 """
  python  main_run_mpi.py arg
- example: python main_run.py --algorithm 11 --iterations 10 --replicas 5 --nrsteps 10000
+ example: python main_run.py --algorithm 11 --iterations 100 --replicas 5 --nrsteps 10000
 """
 
 
@@ -41,6 +41,8 @@ parser.add_argument('--replicas', dest='nreplicas', type=int, default=10,
                     help='number of replicas to use per iteration (default: 10)')
 parser.add_argument('--nrsteps', dest='nrSteps', type=int, default=1000,
                     help='number of replicas to use per iteration (default: 10)')
+parser.add_argument('--temporaryFolder', dest='temporaryFile', type=int, default=0,
+                    help='Save data to temporary folder.')
 
 args = parser.parse_args()
 
@@ -112,23 +114,32 @@ if iAlgo >0:
     print('Mass alpha is '+repr(massScale)+'x Mass')
 
 #create folders to save the data
+if args.temporaryFile ==0:
 
-#dataFileName='Data/'+str(algoName)+'/Tsc'+str(int(TemperatureTAMDFactor))+'MS'+str(int(massScale))+'/Traj/'
-dataFileName='Data/'+str(modelName)+'/'+str(algoName)+'/Traj/'
-dataFileNameFrontierPoints='Data/'+str(modelName)+'/'+str(algoName)+'/Traj/FrontierPoints/'
-dataFileNameEigenVectors='Data/'+str(modelName)+'/'+str(algoName)+'/Traj/Eigenvectors/'
+    #dataFileName='Data/'+str(algoName)+'/Tsc'+str(int(TemperatureTAMDFactor))+'MS'+str(int(massScale))+'/Traj/'
+    dataFileName='Data/'+str(modelName)+'/'+str(algoName)+'/Traj/'
+    dataFileNameFrontierPoints='Data/'+str(modelName)+'/'+str(algoName)+'/Traj/FrontierPoints/'
+    dataFileNameEigenVectors='Data/'+str(modelName)+'/'+str(algoName)+'/Traj/Eigenvectors/'
 
-newpath = os.path.join(os.getcwd(),dataFileName)#+ general_sampler.algorithmName
-if not os.path.exists(newpath):
-    os.makedirs(newpath)
+else:
 
-newpath = os.path.join(os.getcwd(),dataFileNameFrontierPoints)#+ general_sampler.algorithmName
-if not os.path.exists(newpath):
-    os.makedirs(newpath)
+    dataFileName='TemporaryData/'+str(modelName)+'/'+str(algoName)+'/Traj/'
+    dataFileNameFrontierPoints='TemporaryData/'+str(modelName)+'/'+str(algoName)+'/Traj/FrontierPoints/'
+    dataFileNameEigenVectors='TemporaryData/'+str(modelName)+'/'+str(algoName)+'/Traj/Eigenvectors/'
 
-newpath = os.path.join(os.getcwd(),dataFileNameEigenVectors)#+ general_sampler.algorithmName
-if not os.path.exists(newpath):
-    os.makedirs(newpath)
+
+
+    newpath = os.path.join(os.getcwd(),dataFileName)#+ general_sampler.algorithmName
+    if not os.path.exists(newpath):
+        os.makedirs(newpath)
+
+    newpath = os.path.join(os.getcwd(),dataFileNameFrontierPoints)#+ general_sampler.algorithmName
+    if not os.path.exists(newpath):
+        os.makedirs(newpath)
+
+    newpath = os.path.join(os.getcwd(),dataFileNameEigenVectors)#+ general_sampler.algorithmName
+    if not os.path.exists(newpath):
+        os.makedirs(newpath)
 
 
 

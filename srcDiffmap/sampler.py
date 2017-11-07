@@ -826,28 +826,72 @@ class Sampler():
                 #change temperature for the integrator-> the target termperature (passed to diffusionmaps) remains unchanged
                 if(self.changeTemperature == 1):
                     if(it>0):
+
                         T = self.T/self.model.temperature_unit / self.model.kB_const
 
-                        T= T*(0.01+ ((0.25*np.abs(np.cos(0.2*np.pi*it))+1.0)))
+                        T= 3.0 * T #T*(0.01+ ((0.25*np.abs(np.cos(0.2*np.pi*it))+1.0)))
 
                         self.integrator.temperature = np.asscalar(T) * self.model.temperature_unit
                         print("Changing temperature to T="+repr(self.integrator.temperature))
+                    # if(it>0):
+                    #     T = self.T/self.model.temperature_unit / self.model.kB_const
+                    #
+                    #     T= T*(0.01+ ((0.25*np.abs(np.cos(0.2*np.pi*it))+1.0)))
+                    #
+                    #     self.integrator.temperature = np.asscalar(T) * self.model.temperature_unit
+                    #     print("Changing temperature to T="+repr(self.integrator.temperature))
                 #------- simulate Langevin
+                    xyz = list()
 
-                xyz = list()
+                    print('Simulating at higher temperature')
 
-                for rep in range(0, nrRep):
+                    for rep in range(0, nrRep):
 
-                    # TODO: Also track initial and final velocities
 
-                    # each intial replica has initial condition
-                    self.integrator.x0=initialPositions[rep]
+                        # each intial replica has initial condition
+                        self.integrator.x0=initialPositions[rep]
 
-                    #xyz_iter=self.integrator.run_langevin(nrSteps, save_interval=self.modNr) # local Python
-                    xyz_iter = self.integrator.run_openmm_langevin(nrSteps, save_interval=self.modNr)
-                    xyz += xyz_iter
-                    # #only for replicas
-                    # initialPositions[rep] = self.integrator.xEnd
+                        #xyz_iter=self.integrator.run_langevin(nrSteps, save_interval=self.modNr) # local Python
+                        xyz_iter = self.integrator.run_openmm_langevin(int(0.1*nrSteps), save_interval=self.modNr)
+                        xyz += xyz_iter
+                        # #only for replicas
+                        initialPositions[rep] = self.integrator.xEnd
+
+
+                    #reset temperature
+                    T = self.T/self.model.temperature_unit / self.model.kB_const
+
+                    self.integrator.temperature = T * self.model.temperature_unit
+                    print("Changing temperature back to T="+repr(self.integrator.temperature))
+
+                    print('Simulating at target temperature')
+
+                    for rep in range(0, nrRep):
+
+                        # each intial replica has initial condition
+                        self.integrator.x0=initialPositions[rep]
+
+                        #xyz_iter=self.integrator.run_langevin(nrSteps, save_interval=self.modNr) # local Python
+                        xyz_iter = self.integrator.run_openmm_langevin(int(0.9*nrSteps), save_interval=self.modNr)
+                        xyz += xyz_iter
+                        # #only for replicas
+                        initialPositions[rep] = self.integrator.xEnd
+
+                else:
+                    xyz = list()
+
+                    for rep in range(0, nrRep):
+
+                        # TODO: Also track initial and final velocities
+
+                        # each intial replica has initial condition
+                        self.integrator.x0=initialPositions[rep]
+
+                        #xyz_iter=self.integrator.run_langevin(nrSteps, save_interval=self.modNr) # local Python
+                        xyz_iter = self.integrator.run_openmm_langevin(nrSteps, save_interval=self.modNr)
+                        xyz += xyz_iter
+                        # #only for replicas
+                        #initialPositions[rep] = self.integrator.xEnd
 
                 # creat md traj object
                 self.trajSave=md.Trajectory(xyz, self.topology)
@@ -874,7 +918,7 @@ class Sampler():
 
                 print('Current shape of traj is '+repr(trajMD.xyz.shape))
                 while(len(trajMD)>2000):
-                    trajMD=trajMD[::5]
+                    trajMD=trajMD[::2]
                 print('Sparsed shape of traj is '+repr(trajMD.xyz.shape))
 
 

@@ -6,7 +6,6 @@
 
 import numpy as np
 
-
 import math
 from scipy.sparse import csr_matrix
 
@@ -20,7 +19,10 @@ import mdtraj as md
 
 from numpy import linalg as LA
 
+import rmsd
+
 import model
+
 
 dummyModel=model.dummyModel#model.Model()
 #
@@ -54,9 +56,9 @@ def compute_kernel(X, epsilon):
 
     #calling nearest neighbor search class: returning a (sparse) distance matrix
     #albero = neigh_search.radius_neighbors_graph(X, radius = cutoff, mode='distance', p=2, include_self=None)
-    print('constructing neighbor graph')
+    print('constructing neighbors graph')
     albero = neigh_search.radius_neighbors_graph(X, radius=cutoff, mode='distance', metric = myRMSDmetric, include_self=None)#mode='pyfunc',, metric_params={'myRMSDmetric':myRMSDmetric}, include_self=None)
-    print('neighbor graph done')
+    print('neighbors graph done')
     #albero = neigh_search.radius_neighbors_graph(X.xyz, radius=cutoff, mode='pyfunc', metric_params={'func' : md.rmsd}, include_self=None)
 
     #adaptive epsilon
@@ -66,8 +68,7 @@ def compute_kernel(X, epsilon):
     #print("Adaptive epsilon in compute_kernel is "+repr(adaptiveEpsilon))
 
     # adaptive epsilon should be smaller as the epsilon, since it is half of maximal distance which is bounded by cutoff parameter
-    assert(adaptiveEpsilon <= epsilon)
-
+    assert( adaptiveEpsilon <= epsilon )
 
     # computing the diffusion kernel value at the non zero matrix entries
     #diffusion_kernel = np.exp(-(np.array(albero.data)**2)/(epsilon))
@@ -153,11 +154,24 @@ def myRMSDmetric(arr1, arr2):
     p1MD=md.Trajectory(arr1, dummyModel.testsystem.topology)
     p2MD=md.Trajectory(arr2, dummyModel.testsystem.topology)
 
-
     d=md.rmsd(p1MD, p2MD)
 
     return d
 
+def min_rmsd(arr1, arr2):
+
+    nParticles = len(arr1) / 3;
+    assert (nParticles == int(nParticles))
+
+    X1 = arr1.reshape(int(nParticles), 3 )
+    X2 = arr2.reshape(int(nParticles), 3 )
+
+    X1 = X1 -  rmsd.centroid(X1)
+    X2 = X2 -  rmsd.centroid(X2)
+
+    x = rmsd.kabsch_rmsd(X1, X2)
+
+    return x
 
 
 
