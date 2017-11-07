@@ -166,10 +166,10 @@ def compute_P(kernel, X):
 
     alpha = 0.5;
     m = np.shape(X)[0];
-    D = sps.csr_matrix.sum(kernel, axis=0);
+    D = sps.csr_matrix.sum(kernel, axis=1).transpose();
     Dalpha = sps.spdiags(np.power(D,-alpha), 0, m, m)
     kernel = Dalpha * kernel * Dalpha;
-    D = sps.csr_matrix.sum(kernel, axis=0);
+    D = sps.csr_matrix.sum(kernel, axis=1).transpose();
     Dalpha = sps.spdiags(np.power(D,-1), 0, m, m)
     kernel = Dalpha * kernel;
 
@@ -216,7 +216,7 @@ def get_eigenvectors(data, nrEV, **kwargs):
          P= kwargs['DiffMapMatrix']
     else:
          P,q = compute_P_and_q(data)
-    lambdas, V = SLA.eigsh(P, k=nrEV)#, which='LM' )
+    lambdas, V = SLA.eigs(P, k=nrEV)#, which='LM' )
     ix = lambdas.argsort()[::-1]
     return V[:,ix], lambdas[ix]
 
@@ -402,7 +402,7 @@ def compute_eigenvectors(laplacian):
 
     laplacian *= -1
     v0 = np.random.uniform(-1, 1, laplacian.shape[0])
-    lambdas, diffusion_map = eigh(laplacian, k=n_components,
+    lambdas, diffusion_map = eig(laplacian, k=n_components,
                                          sigma=1.0, which='LM',
                                          tol=eigen_tol, v0=v0)
     return diffusion_map.T[n_components::-1] # * dd
