@@ -196,6 +196,10 @@ class Sampler():
             initialPositions=[self.integrator.x0 for rep in range(0,nrRep)]
             #Xit=[self.integrator.x0 for i in range(nrRep*nrSteps)]
 
+            IC=md.Trajectory(self.integrator.x0 / self.model.x_unit, self.topology)
+
+            print('Saving initial conditions to file')
+            IC.save(self.savingFolder+'initial_condition_traj.h5')
             ##############################
 
             for it in range(0,nrIterations):
@@ -831,7 +835,8 @@ class Sampler():
 
                         T= 3.0 * T #T*(0.01+ ((0.25*np.abs(np.cos(0.2*np.pi*it))+1.0)))
 
-                        self.integrator.temperature = np.asscalar(T) * self.model.temperature_unit
+                        #self.integrator.temperature = np.asscalar(T) * self.model.temperature_unit
+                        self.integrator.temperature = T * self.model.temperature_unit
                         print("Changing temperature to T="+repr(self.integrator.temperature))
                     # if(it>0):
                     #     T = self.T/self.model.temperature_unit / self.model.kB_const

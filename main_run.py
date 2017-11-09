@@ -1,6 +1,6 @@
 """
  python  main_run_mpi.py arg
- example: python main_run.py --algorithm 11 --iterations 100 --replicas 5 --nrsteps 10000
+ example: python main_run.py --algorithm 11 --iterations 10 --replicas 5 --nrsteps 10000
 """
 
 
@@ -95,7 +95,7 @@ kT = kB * temperature
 
 
 gamma = 1.0 / unit.picosecond
-dt = 2.0 * unit.femtosecond#2.0 * unit.femtosecond
+dt = 2.0 * unit.femtosecond #2.0 * unit.femtosecond#2.0 * unit.femtosecond
 
 TemperatureTAMDFactor=30.0
 massScale=50.0
@@ -114,6 +114,7 @@ if iAlgo >0:
     print('Mass alpha is '+repr(massScale)+'x Mass')
 
 #create folders to save the data
+
 if args.temporaryFile ==0:
 
     #dataFileName='Data/'+str(algoName)+'/Tsc'+str(int(TemperatureTAMDFactor))+'MS'+str(int(massScale))+'/Traj/'
@@ -129,16 +130,16 @@ else:
 
 
 
-    newpath = os.path.join(os.getcwd(),dataFileName)#+ general_sampler.algorithmName
-    if not os.path.exists(newpath):
+newpath = os.path.join(os.getcwd(),dataFileName)#+ general_sampler.algorithmName
+if not os.path.exists(newpath):
         os.makedirs(newpath)
 
-    newpath = os.path.join(os.getcwd(),dataFileNameFrontierPoints)#+ general_sampler.algorithmName
-    if not os.path.exists(newpath):
+newpath = os.path.join(os.getcwd(),dataFileNameFrontierPoints)#+ general_sampler.algorithmName
+if not os.path.exists(newpath):
         os.makedirs(newpath)
 
-    newpath = os.path.join(os.getcwd(),dataFileNameEigenVectors)#+ general_sampler.algorithmName
-    if not os.path.exists(newpath):
+newpath = os.path.join(os.getcwd(),dataFileNameEigenVectors)#+ general_sampler.algorithmName
+if not os.path.exists(newpath):
         os.makedirs(newpath)
 
 

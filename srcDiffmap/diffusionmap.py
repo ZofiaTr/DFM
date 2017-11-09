@@ -49,35 +49,56 @@ def compute_kernel(X, epsilon):
     parameters: X is matrix of size number of steps times nDOF
     """
 
+    #kernel=kernel.Kernel(type='gaussian', distance = 'euclidean', epsilon = 1.0, k=64)
 
-    m = np.shape(X)[0];
 
-    cutoff = np.sqrt(2*epsilon);
+    Y = X
+    compute_self = True
+    k=64
+    typei='gaussian'
+    neigh = NearestNeighbors(metric=myRMSDmetric)
+    k0 = min(k, np.shape(Y)[0])
+    A = neigh.fit(Y).kneighbors_graph(X,n_neighbors=k0, mode='distance')
+    # retrieve all nonzero elements and apply kernel function to it
+    v = A.data
+    if (typei=='gaussian'):
+        A.data = np.exp(-v**2/epsilon)
+    else:
+        raise("Error: Kernel type not understood.")
+    # symmetrize
+    if (compute_self == True):
+        A = 0.5*(A+A.transpose())
 
-    #calling nearest neighbor search class: returning a (sparse) distance matrix
-    #albero = neigh_search.radius_neighbors_graph(X, radius = cutoff, mode='distance', p=2, include_self=None)
-    print('constructing neighbors graph')
-    albero = neigh_search.radius_neighbors_graph(X, radius=cutoff, mode='distance', metric = myRMSDmetric, include_self=None)#mode='pyfunc',, metric_params={'myRMSDmetric':myRMSDmetric}, include_self=None)
-    print('neighbors graph done')
-    #albero = neigh_search.radius_neighbors_graph(X.xyz, radius=cutoff, mode='pyfunc', metric_params={'func' : md.rmsd}, include_self=None)
-
-    #adaptive epsilon
-    x=np.array(albero.data)
-    adaptiveEpsilon=0.5*np.mean(x)
-    diffusion_kernel = np.exp(-(x**2)/(adaptiveEpsilon))
-    #print("Adaptive epsilon in compute_kernel is "+repr(adaptiveEpsilon))
-
-    # adaptive epsilon should be smaller as the epsilon, since it is half of maximal distance which is bounded by cutoff parameter
-    assert( adaptiveEpsilon <= epsilon )
-
-    # computing the diffusion kernel value at the non zero matrix entries
-    #diffusion_kernel = np.exp(-(np.array(albero.data)**2)/(epsilon))
-
-    # build sparse matrix for diffusion kernel
-    kernel = sps.csr_matrix((diffusion_kernel, albero.indices, albero.indptr), dtype = float, shape=(m,m))
-    kernel = kernel + sps.identity(m)  # accounting for diagonal elements
-
-    return kernel;
+    return A
+    ##################################
+    # m = np.shape(X)[0];
+    #
+    # cutoff = np.sqrt(2*epsilon);
+    #
+    # #calling nearest neighbor search class: returning a (sparse) distance matrix
+    # #albero = neigh_search.radius_neighbors_graph(X, radius = cutoff, mode='distance', p=2, include_self=None)
+    # print('constructing neighbors graph')
+    # albero = neigh_search.radius_neighbors_graph(X, radius=cutoff, mode='distance', metric = myRMSDmetric, include_self=None)#mode='pyfunc',, metric_params={'myRMSDmetric':myRMSDmetric}, include_self=None)
+    # print('neighbors graph done')
+    # #albero = neigh_search.radius_neighbors_graph(X.xyz, radius=cutoff, mode='pyfunc', metric_params={'func' : md.rmsd}, include_self=None)
+    #
+    # #adaptive epsilon
+    # x=np.array(albero.data)
+    # adaptiveEpsilon=0.5*np.mean(x)
+    # diffusion_kernel = np.exp(-(x**2)/(adaptiveEpsilon))
+    # #print("Adaptive epsilon in compute_kernel is "+repr(adaptiveEpsilon))
+    #
+    # # adaptive epsilon should be smaller as the epsilon, since it is half of maximal distance which is bounded by cutoff parameter
+    # assert( adaptiveEpsilon <= epsilon )
+    #
+    # # computing the diffusion kernel value at the non zero matrix entries
+    # #diffusion_kernel = np.exp(-(np.array(albero.data)**2)/(epsilon))
+    #
+    # # build sparse matrix for diffusion kernel
+    # kernel = sps.csr_matrix((diffusion_kernel, albero.indices, albero.indptr), dtype = float, shape=(m,m))
+    # kernel = kernel + sps.identity(m)  # accounting for diagonal elements
+    #
+    # return kernel;
 
 def compute_kernel_mdtraj(traj, epsilon):
     """UNDER CONSTRUCTION: DOES NOT WORK"""

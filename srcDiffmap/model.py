@@ -12,11 +12,11 @@ import openmmtools
 
 from openmmtools.constants import kB
 
-modelName='Alanine'
+#modelName='Alanine'
 #modelName='Lemon'
 #modelName='Dimer'
 
-#modelName='Thomson'
+modelName='Alanine'
 
 class Model():
 
@@ -76,6 +76,9 @@ class Model():
 
         self.context = openmm.Context(self.system, dummy_integrator)
         self.context.setPositions(self.positions)
+
+        # if(relax == 1):
+        #     self.context.minimizeEnergy(tolerance=2.0)
 
         self.x_unit = self.positions.unit
         self.energy_unit = unit.kilojoule_per_mole
@@ -206,10 +209,7 @@ class Model():
     def createThomson(self):
 
 
-        K=1 * unit.kilocalories_per_mole / unit.angstrom**2#290.1 * unit.kilocalories_per_mole / unit.angstrom**2
-        r0=1 * unit.angstroms
-        w=0.5 * unit.angstroms
-        h=0.01 * unit.kilocalories_per_mole / unit.angstrom**2
+        r0=10.0 * unit.angstroms
 
         NrParticles=10
 
@@ -217,12 +217,12 @@ class Model():
 
         mval=39.948 * unit.amu
         print((mval))
-        [ m.append(mval) for i in range(NrParticles+1)]
+        [ m.append(mval) for i in range(NrParticles)]
 
-        constraint=True
+        constraint=False
         use_central_potential=False
 
-        testsystem =testsystems.TestSystem( K=K,
+        testsystem =testsystems.TestSystem(
                  r0=r0,
                  constraint=constraint,
                  use_central_potential=use_central_potential)
@@ -231,7 +231,7 @@ class Model():
         system = openmm.System()
 
         # Add two particles to the system.
-        for i in range(NrParticles+1):
+        for i in range(NrParticles):
             system.addParticle(m[i])
 
         # Add a harmonic bond.
@@ -244,31 +244,31 @@ class Model():
         force.addGlobalParameter("r0", r0);
 
         #skip zeroth (central) particle
-        for i in range(1, NrParticles+1):
-            for j in range(1, NrParticles+1):
+        for i in range(0, NrParticles):
+            for j in range(0, NrParticles):
                 if(j>i):
                     pass
                 else:
                     force.addBond(i, j, [])#, r0, h, w)
         system.addForce(force)
 
-        force0 = openmm.CustomBondForce("0.0 * r");
-        for i in range(1, NrParticles+1):
-
-                    force0.addBond(0, j, [])#, r0, h, w)
-        system.addForce(force0)
+        # force0 = openmm.CustomBondForce("0.0 * r");
+        # for i in range(1, NrParticles+1):
+        #
+        #             force0.addBond(0, j, [])#, r0, h, w)
+        # system.addForce(force0)
 
         if constraint:
             # Add constraint between particles.
-            for i in range(1, NrParticles+1):
+            for i in range(1, NrParticles):
                 system.addConstraint(0, i, r0)
 
         initPos=np.loadtxt('10.xyz', skiprows=2, usecols=[1,2,3])
         #print(initPos.shape)
 
         # Set the positions.
-        positions=unit.Quantity(np.zeros([NrParticles+1, 3], np.float32), unit.angstroms)
-        positions[1:, :] = initPos* unit.angstroms
+        positions=unit.Quantity(np.zeros([NrParticles, 3], np.float32), unit.angstroms)
+        #positions[1:, :] = initPos* unit.angstroms
 
         if use_central_potential:
             # Add a central restraining potential.
@@ -287,7 +287,7 @@ class Model():
         element = app.Element.getBySymbol('N')
         chain = topology.addChain()
         residue = topology.addResidue('N2', chain)
-        for i in range(NrParticles+1):
+        for i in range(NrParticles):
             topology.addAtom('N', element, residue)
 
         testsystem.topology = topology
