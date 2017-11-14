@@ -45,7 +45,7 @@ class Sampler():
         self.integrator=integrator
 
         #set the temperature here - then passed to the integrator
-        self.T=self.integrator.kT#temperature
+        self.kT=self.integrator.kT#temperature
 
         self.timeAv=av.Average(0.0)
 
@@ -66,7 +66,7 @@ class Sampler():
         self.modNr=10
         self.modEFTAD=10
 
-        self.Traj_LM_save=None
+        self.kTraj_LM_save=None
         self.V1_LM_save=None
 
         self.gridCV_long=None
@@ -196,10 +196,6 @@ class Sampler():
             initialPositions=[self.integrator.x0 for rep in range(0,nrRep)]
             #Xit=[self.integrator.x0 for i in range(nrRep*nrSteps)]
 
-            IC=md.Trajectory(self.integrator.x0 / self.model.x_unit, self.topology)
-
-            print('Saving initial conditions to file')
-            IC.save(self.savingFolder+'initial_condition_traj.h5')
             ##############################
 
             for it in range(0,nrIterations):
@@ -365,8 +361,8 @@ class Sampler():
 
                 #------ compute CV ------------------------------
 
-                landmarks, V1 = dimension_reduction(traj, self.epsilon, self.numberOfLandmarks, self, self.T, self.method)
-                #landmarks, V1 = dimension_reduction(self.trajSave, self.epsilon, self.numberOfLandmarks, self.model, self.T, self.method) # EXPERIMENTAL
+                landmarks, V1 = dimension_reduction(traj, self.epsilon, self.numberOfLandmarks, self, self.kT, self.method)
+                #landmarks, V1 = dimension_reduction(self.trajSave, self.epsilon, self.numberOfLandmarks, self.model, self.kT, self.method) # EXPERIMENTAL
 
                 # change the epsilon if there is not enough of landmarks
                 escape=0
@@ -375,7 +371,7 @@ class Sampler():
                     if len(np.unique(landmarks)) < 0.8*len(landmarks) and self.epsilon < self.epsilon_Max:
                         print('Increasing epsilon: epsilon = '+repr(self.epsilon))
                         self.epsilon =self.epsilon*2
-                        landmarks, V1 = dimension_reduction(traj, self.epsilon, self.numberOfLandmarks, self, self.T, self.method)
+                        landmarks, V1 = dimension_reduction(traj, self.epsilon, self.numberOfLandmarks, self, self.kT, self.method)
                     else:
                         escape=1
 
@@ -500,7 +496,7 @@ class Sampler():
 
                 #------ compute CV ------------------------------
 
-                landmarks, V1 = dimension_reduction(traj, self.epsilon, self.numberOfLandmarks, self, self.T, self.method)
+                landmarks, V1 = dimension_reduction(traj, self.epsilon, self.numberOfLandmarks, self, self.kT, self.method)
 
                 # change the epsilon if there is not enough of landmarks
                 escape=0
@@ -509,7 +505,7 @@ class Sampler():
                     if len(np.unique(landmarks)) < 0.8*len(landmarks) and self.epsilon < self.epsilon_Max:
                         print('Increasing epsilon: epsilon = '+repr(self.epsilon))
                         self.epsilon =self.epsilon*2
-                        landmarks, V1 = dimension_reduction(traj, self.epsilon, self.numberOfLandmarks, self, self.T, self.method)
+                        landmarks, V1 = dimension_reduction(traj, self.epsilon, self.numberOfLandmarks, self, self.kT, self.method)
                     else:
                         escape=1
 
@@ -586,7 +582,7 @@ class Sampler():
 
                 #------ compute CV ------------------------------
 
-                landmarks, V1 = dimension_reduction(traj, self.epsilon, self.numberOfLandmarks, self, self.T, self.method)
+                landmarks, V1 = dimension_reduction(traj, self.epsilon, self.numberOfLandmarks, self, self.kT, self.method)
 
                 # change the epsilon if there is not enough of landmarks
                 escape=0
@@ -595,7 +591,7 @@ class Sampler():
                     if len(np.unique(landmarks)) < 0.8*len(landmarks) and self.epsilon < self.epsilon_Max:
                         print('Increasing epsilon: epsilon = '+repr(self.epsilon))
                         self.epsilon =self.epsilon*2
-                        landmarks, V1 = dimension_reduction(traj, self.epsilon, self.numberOfLandmarks, self, self.T, self.method)
+                        landmarks, V1 = dimension_reduction(traj, self.epsilon, self.numberOfLandmarks, self, self.kT, self.method)
                     else:
                         escape=1
 
@@ -831,7 +827,7 @@ class Sampler():
                 if(self.changeTemperature == 1):
                     if(it>0):
 
-                        T = self.T/self.model.temperature_unit / self.model.kB_const
+                        T = self.kT/self.model.temperature_unit / self.model.kB_const
 
                         T= 3.0 * T #T*(0.01+ ((0.25*np.abs(np.cos(0.2*np.pi*it))+1.0)))
 
@@ -839,7 +835,7 @@ class Sampler():
                         self.integrator.temperature = T * self.model.temperature_unit
                         print("Changing temperature to T="+repr(self.integrator.temperature))
                     # if(it>0):
-                    #     T = self.T/self.model.temperature_unit / self.model.kB_const
+                    #     T = self.kT/self.model.temperature_unit / self.model.kB_const
                     #
                     #     T= T*(0.01+ ((0.25*np.abs(np.cos(0.2*np.pi*it))+1.0)))
                     #
@@ -864,7 +860,7 @@ class Sampler():
 
 
                     #reset temperature
-                    T = self.T/self.model.temperature_unit / self.model.kB_const
+                    T = self.kT/self.model.temperature_unit / self.model.kB_const
 
                     self.integrator.temperature = T * self.model.temperature_unit
                     print("Changing temperature back to T="+repr(self.integrator.temperature))
@@ -933,7 +929,7 @@ class Sampler():
                 #------ compute CV and reset initial conditions------------------------------
 
                 if(self.corner==0):
-                    V1, q, qEstimated, potEn, kernelDiff=dominantEigenvectorDiffusionMap(traj, self.epsilon, self, self.T, self.method)
+                    V1, q, qEstimated, potEn, kernelDiff=dominantEigenvectorDiffusionMap(traj, self.epsilon, self, self.kT, self.method)
 
                     idxMaxV1 = np.argmax(np.abs(V1))
 
@@ -947,7 +943,7 @@ class Sampler():
 
                     nrFEV = 2
                     # V1 is matrix with first nrFEV eigenvectors
-                    V1, q, qEstimated, potEn, kernelDiff=dominantEigenvectorDiffusionMap(traj, self.epsilon, self, self.T, self.method, nrOfFirstEigenVectors=nrFEV+1)
+                    V1, q, qEstimated, potEn, kernelDiff=dominantEigenvectorDiffusionMap(traj, self.epsilon, self, self.kT, self.method, nrOfFirstEigenVectors=nrFEV+1)
 
                     ### replace this part till **
                     # select a random point and compute distances to it
@@ -1048,15 +1044,21 @@ def reshapeDataBack(traj):
 
 def dominantEigenvectorDiffusionMap(tr, eps, sampler, T, method, nrOfFirstEigenVectors=2):
 
-        print("Temperature in dominantEigenvectorDiffusionMap is "+repr(T/sampler.model.kB_const))
+        print("Temperature in dominantEigenvectorDiffusionMap is "+repr(sampler.kT/sampler.model.kB_const))
 
         qTargetDistribution=np.zeros(len(tr))
         E=np.zeros(len(tr))
         for i in range(0,len(tr)):
-            tmp=tr[i].reshape(sampler.model.testsystem.positions.shape)*sampler.model.x_unit
-            E[i]=sampler.model.energy(tmp) / sampler.model.energy_unit
-            betaH_unitless = E[i]/T*sampler.model.temperature_unit
-            qTargetDistribution[i]=np.exp(-(betaH_unitless))
+            tmp=tr[i].reshape(sampler.model.testsystem.positions.shape)#*smpl.model.x_unit
+            #E[i]=smpl.model.energy(tmp) #/ smpl.model.energy_unit
+            #print(tmp)
+            Etmp= sampler.model.energy(tmp)
+
+            #print(Etmp)
+            betatimesH_unitless =Etmp / sampler.kT #* smpl.model.temperature_unit
+            qTargetDistribution[i]=np.exp(-(betatimesH_unitless))
+            #print(betatimesH_unitless)
+            E[i]=Etmp.value_in_unit(sampler.model.energy_unit)
 
 
         if method=='PCA':

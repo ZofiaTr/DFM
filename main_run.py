@@ -1,6 +1,6 @@
 """
  python  main_run_mpi.py arg
- example: python main_run.py --algorithm 11 --iterations 10 --replicas 5 --nrsteps 10000
+ example: python main_run.py --algorithm 11 --iterations 10 --replicas 5 --nrsteps 10000 --temporaryFolder 1
 """
 
 
