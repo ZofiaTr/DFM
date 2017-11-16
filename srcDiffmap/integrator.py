@@ -163,14 +163,18 @@ class Integrator():
             raise Exception("n_steps (%d) should be an integral multiple of save_interval (%d)" % (n_steps, save_interval))
 
         #reset temperature if necessary
-        self.langevin_integrator.temperature=self.temperature
-        
+        self.langevin_integrator.setTemperature(self.temperature)
+
         # Intialize positions and velocities
         self.context.setPositions(self.x0)
         self.context.setVelocities(self.v0)
 
         # Store trajectory
         xyz = list()
+        potEnergy = list()
+
+        #print('Temperature in openmmtools integrator set as '+repr(self.langevin_integrator.getTemperature()))
+
 
         # Run n_steps of dynamics
         for iteration in range(int(n_steps / save_interval)):
@@ -179,6 +183,8 @@ class Integrator():
             x = state.getPositions(asNumpy=True)
 
             v = state.getVelocities(asNumpy=True)
+            e = state.getPotentialEnergy()
+            potEnergy.append(e/ self.model.energy_unit)
             # Append to trajectory
             xyz.append(x / self.model.x_unit)
             # Store kinetic temperature
@@ -192,7 +198,7 @@ class Integrator():
 
 
 
-        return xyz
+        return xyz, potEnergy
 
     def run_EFTAD(self, n_steps):
         """Simulate n_steps of EFTAD/TAMD with fixed CV's discretized by BAOAB scheme

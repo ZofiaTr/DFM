@@ -221,16 +221,16 @@ def compute_P(kernel, X):
 
     return kernel
 
-def compute_unweighted_P( X, epsilon, sampler, target_distribution):
+def compute_unweighted_P( X, epsilon, sampler, target_distribution, kernel=None):
 
     #print('Unweighting according to temperature '+repr(sampler.T))
     m = len(X) #np.shape(X)[0];
+    if kernel==None:
+        if isinstance(X, md.Trajectory):
+            kernel=compute_kernel_mdtraj(X, epsilon)
+        else:
 
-    if isinstance(X, md.Trajectory):
-        kernel=compute_kernel_mdtraj(X, epsilon)
-    else:
-
-        kernel = compute_kernel(X, epsilon)
+            kernel = compute_kernel(X, epsilon)
 
     qEmp=kernel.sum(axis=1)
 

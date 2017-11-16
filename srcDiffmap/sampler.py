@@ -25,6 +25,8 @@ import rmsd
 import time
 import mdtraj as md
 
+import kernel as krnl
+
 maxDataLength=2000
 everyN=1
 writingEveryNSteps=1
@@ -38,7 +40,7 @@ class Sampler():
     """
 
 
-    def __init__(self, model, integrator, algorithm=0, dataFileName='/Data', dataFrontierPointsName = '/FrontierPoints', dataEigenVectorsName='/Eigenvectors'):
+    def __init__(self, model, integrator, algorithm=0, dataFileName='/Data', dataFrontierPointsName = '/FrontierPoints', dataEigenVectorsName='/Eigenvectors', dataEnergyName='/Energies'):
 
         self.model=model
         self.algorithm=algorithm
@@ -52,7 +54,7 @@ class Sampler():
         self.dim=3
         self.dimCV=1
 
-        self.method='TMDiffmap'#'DiffMap'
+        self.method='Diffmap'#'TMDiffmap'#'Diffmap'
 
         #diffusion maps constants
         self.epsilon=2.0 #0.05
@@ -109,10 +111,12 @@ class Sampler():
         self.topology = md.Topology().from_openmm(self.model.testsystem.topology)
         self.trajSave= md.Trajectory(self.model.positions.value_in_unit(self.model.x_unit), self.topology)
         self.savingFolder=dataFileName+'/'+self.model.modelName
+        self.savingFolderEnergy=dataEnergyName
         self.savingFolderFrontierPoints = dataFrontierPointsName
         self.savingFolderEigenvectors = dataEigenVectorsName
 
         self.saveEigenvectors=1
+        self.saveEnergy=1
 
 
 
@@ -214,21 +218,39 @@ class Sampler():
 
                 #------- simulate Langevin
 
+                # xyz = list()
+                #
+                # for rep in range(0, nrRep):
+                #
+                #     # TODO: Also track initial and final velocities
+                #
+                #     self.integrator.x0=initialPositions[rep]
+                #     #xyz += self.integrator.run_langevin(nrSteps, save_interval=self.modNr) # local Python
+                #     xyz += self.integrator.run_openmm_langevin(nrSteps, save_interval=self.modNr)
+                #     initialPositions[rep] = self.integrator.xEnd
+                #
+                #
+                # if(it>0):
+                #     tavEnd=time.time()
+                #     self.timeAv.addSample(tavEnd-tav0)
+
                 xyz = list()
+                potentialEnergyList = list()
 
                 for rep in range(0, nrRep):
 
                     # TODO: Also track initial and final velocities
 
+                    # each intial replica has initial condition
                     self.integrator.x0=initialPositions[rep]
-                    #xyz += self.integrator.run_langevin(nrSteps, save_interval=self.modNr) # local Python
-                    xyz += self.integrator.run_openmm_langevin(nrSteps, save_interval=self.modNr)
+
+                    #xyz_iter=self.integrator.run_langevin(nrSteps, save_interval=self.modNr) # local Python
+                    xyz_iter, potEnergy = self.integrator.run_openmm_langevin(nrSteps, save_interval=self.modNr)
+                    xyz += xyz_iter
+                    if self.saveEnergy==1:
+                        potentialEnergyList +=potEnergy
+                    # #only for replicas
                     initialPositions[rep] = self.integrator.xEnd
-
-
-                if(it>0):
-                    tavEnd=time.time()
-                    self.timeAv.addSample(tavEnd-tav0)
 
                 #tmpselftraj=np.copy(self.sampled_trajectory)
                 #self.sampled_trajectory=np.concatenate((tmpselftraj,np.copy(Xrep[-1].value_in_unit(self.model.x_unit))))
@@ -238,6 +260,12 @@ class Sampler():
 
                 print('Saving traj to file')
                 self.trajSave.save(self.savingFolder+'traj_'+repr(it)+'.h5')
+
+                if self.saveEnergy==1:
+                    print('Saving energy to file')
+                    np.save(self.savingFolderEnergy+'E_'+repr(it), potentialEnergyList)
+
+                #np.save(self.savingFolder+'E_'+repr(it),potEnergy)
                 #if (nrSteps*nrIterations*nrRep)> 10**6:
             #    self.sampled_trajectory=Xrep[::modNr**2]
             #else:
@@ -336,7 +364,8 @@ class Sampler():
                 for rep in range(0, nrRep):
 
                     self.integrator.x0=initialPositions[rep]
-                    xyz += self.integrator.run_openmm_langevin(nrSteps, save_interval=self.modNr)
+                    x_iter, potEnergy = self.integrator.run_openmm_langevin(nrSteps, save_interval=self.modNr)
+                    xyz += x_iter
                     initialPositions[rep] = xyz[-1]
 
                  #-----save trajectory from the current Iteration
@@ -413,7 +442,7 @@ class Sampler():
                 else:
 
                     self.integrator.x0=xEftad[-1]
-                xyz = self.integrator.run_openmm_langevin(self.nrDecorrSteps, save_interval=self.nrDecorrSteps)
+                xyz, potEnergy = self.integrator.run_openmm_langevin(self.nrDecorrSteps, save_interval=self.nrDecorrSteps)
 
                 initialPositions=[xyz[-1] for rep in range(0,nrRep)]
 
@@ -567,9 +596,12 @@ class Sampler():
 
                     self.integrator.x0=initialPositions[rep]
                     if it==0:
-                        xyz += self.integrator.run_openmm_langevin(nrSteps, save_interval=self.modNr)
+                        x_iter, potEnergy = self.integrator.run_openmm_langevin(nrSteps, save_interval=self.modNr)
+                        xyz += x_iter
                     else:
-                        xyz += self.integrator.run_modifKinEn_Langevin(nrSteps, dataLM, VLM, v, save_interval=self.modNr)
+
+                        x_iter = self.integrator.run_modifKinEn_Langevin(nrSteps, dataLM, VLM, v, save_interval=self.modNr)
+                        xyz += x_iter
                     initialPositions[rep] = xyz[-1]
 
                  #-----save trajectory from the current Iteration
@@ -766,9 +798,10 @@ class Sampler():
 
                     self.integrator.x0=initialPositions[rep]
 
-                    xyz_iter=self.integrator.run_langevin(nrSteps, save_interval=self.modNr) # local Python
+                    #xyz_iter=self.integrator.run_langevin(nrSteps, save_interval=self.modNr) # local Python
+
+                    xyz_iter, potEnergy=  self.integrator.run_openmm_langevin(nrSteps, save_interval=self.modNr)
                     xyz += xyz_iter
-                    #xyz += self.integrator.run_openmm_langevin(nrSteps, save_interval=self.modNr)
 
                     Xmd = md.Trajectory(xyz_iter , self.topology)
                     #
@@ -800,6 +833,16 @@ class Sampler():
             print('runFrontierPoints: replicated std dynamics with '+repr(nrRep)+' replicas')
             print('reset initial condition by maximizing the domninant eigenvector obtained by diffusion map')
 
+
+            if (self.changeTemperature == 1):
+                print('Changing temperature on')
+
+            if( self.corner == 1):
+                print('Cornerstones algorithm on')
+            else:
+                print('Frontier points algorithm on')
+
+
             #intialisation
             initialPositions=[self.integrator.x0 for rep in range(0,nrRep)]
             #Xit=[self.integrator.x0 for i in range(nrRep*nrSteps)]
@@ -825,14 +868,10 @@ class Sampler():
                 #--------------------
                 #change temperature for the integrator-> the target termperature (passed to diffusionmaps) remains unchanged
                 if(self.changeTemperature == 1):
-                    if(it>0):
+                    if(it>0):# and it < nrIterations-2):
 
-                        T = self.kT/self.model.temperature_unit / self.model.kB_const
-
-                        T= 3.0 * T #T*(0.01+ ((0.25*np.abs(np.cos(0.2*np.pi*it))+1.0)))
-
-                        #self.integrator.temperature = np.asscalar(T) * self.model.temperature_unit
-                        self.integrator.temperature = T * self.model.temperature_unit
+                        T = self.kT/ self.model.kB_const
+                        self.integrator.temperature = 5.0 * T # * self.model.temperature_unit
                         print("Changing temperature to T="+repr(self.integrator.temperature))
                     # if(it>0):
                     #     T = self.kT/self.model.temperature_unit / self.model.kB_const
@@ -843,8 +882,10 @@ class Sampler():
                     #     print("Changing temperature to T="+repr(self.integrator.temperature))
                 #------- simulate Langevin
                     xyz = list()
+                    potentialEnergyList=list()
 
                     print('Simulating at higher temperature')
+                    ratioStepsHigherTemperature=0.2
 
                     for rep in range(0, nrRep):
 
@@ -853,16 +894,17 @@ class Sampler():
                         self.integrator.x0=initialPositions[rep]
 
                         #xyz_iter=self.integrator.run_langevin(nrSteps, save_interval=self.modNr) # local Python
-                        xyz_iter = self.integrator.run_openmm_langevin(int(0.1*nrSteps), save_interval=self.modNr)
+                        xyz_iter, potEnergy = self.integrator.run_openmm_langevin(int(ratioStepsHigherTemperature*nrSteps), save_interval=self.modNr)
                         xyz += xyz_iter
+                        if self.saveEnergy==1:
+                            potentialEnergyList +=potEnergy
                         # #only for replicas
                         initialPositions[rep] = self.integrator.xEnd
 
 
                     #reset temperature
-                    T = self.kT/self.model.temperature_unit / self.model.kB_const
 
-                    self.integrator.temperature = T * self.model.temperature_unit
+                    self.integrator.temperature = self.kT/ self.model.kB_const
                     print("Changing temperature back to T="+repr(self.integrator.temperature))
 
                     print('Simulating at target temperature')
@@ -873,13 +915,17 @@ class Sampler():
                         self.integrator.x0=initialPositions[rep]
 
                         #xyz_iter=self.integrator.run_langevin(nrSteps, save_interval=self.modNr) # local Python
-                        xyz_iter = self.integrator.run_openmm_langevin(int(0.9*nrSteps), save_interval=self.modNr)
+                        xyz_iter, potEnergy = self.integrator.run_openmm_langevin(int((1.0-ratioStepsHigherTemperature)*nrSteps), save_interval=self.modNr)
                         xyz += xyz_iter
+                        if self.saveEnergy==1:
+                            potentialEnergyList +=potEnergy
                         # #only for replicas
                         initialPositions[rep] = self.integrator.xEnd
 
+                #elif(self.changeTemperature == 0 or it> nrIterations-2):
                 else:
                     xyz = list()
+                    potentialEnergyList=list()
 
                     for rep in range(0, nrRep):
 
@@ -889,13 +935,18 @@ class Sampler():
                         self.integrator.x0=initialPositions[rep]
 
                         #xyz_iter=self.integrator.run_langevin(nrSteps, save_interval=self.modNr) # local Python
-                        xyz_iter = self.integrator.run_openmm_langevin(nrSteps, save_interval=self.modNr)
+                        xyz_iter, potEnergy= self.integrator.run_openmm_langevin(nrSteps, save_interval=self.modNr)
                         xyz += xyz_iter
+                        if self.saveEnergy==1:
+                            potentialEnergyList +=potEnergy
+
+
                         # #only for replicas
                         #initialPositions[rep] = self.integrator.xEnd
 
                 # creat md traj object
                 self.trajSave=md.Trajectory(xyz, self.topology)
+
 
                 #DEBUG
                 # for i in range(len(self.trajSave)):
@@ -997,6 +1048,10 @@ class Sampler():
                 print('Saving traj to file')
                 self.trajSave.save(self.savingFolder+'traj_'+repr(it)+'.h5')
 
+                if self.saveEnergy==1:
+                    print('Saving energy to file')
+                    np.save(self.savingFolderEnergy+'E_'+repr(it), potentialEnergyList)
+
 
                 if(it>0):
                     tavEnd=time.time()
@@ -1042,20 +1097,21 @@ def reshapeDataBack(traj):
 ###########################################################
 
 
-def dominantEigenvectorDiffusionMap(tr, eps, sampler, T, method, nrOfFirstEigenVectors=2):
+def dominantEigenvectorDiffusionMap(tr, eps, sampler, T, method, nrOfFirstEigenVectors=2, numberOfNeighborsPotential=1):
 
         print("Temperature in dominantEigenvectorDiffusionMap is "+repr(sampler.kT/sampler.model.kB_const))
 
         qTargetDistribution=np.zeros(len(tr))
         E=np.zeros(len(tr))
+
         for i in range(0,len(tr)):
-            tmp=tr[i].reshape(sampler.model.testsystem.positions.shape)#*smpl.model.x_unit
-            #E[i]=smpl.model.energy(tmp) #/ smpl.model.energy_unit
+            tmp=tr[i].reshape(sampler.model.testsystem.positions.shape)#*sampler.model.x_unit
+            #E[i]=sampler.model.energy(tmp) #/ sampler.model.energy_unit
             #print(tmp)
             Etmp= sampler.model.energy(tmp)
 
             #print(Etmp)
-            betatimesH_unitless =Etmp / sampler.kT #* smpl.model.temperature_unit
+            betatimesH_unitless =Etmp / sampler.kT #* sampler.model.temperature_unit
             qTargetDistribution[i]=np.exp(-(betatimesH_unitless))
             #print(betatimesH_unitless)
             E[i]=Etmp.value_in_unit(sampler.model.energy_unit)
@@ -1112,9 +1168,131 @@ def dominantEigenvectorDiffusionMap(tr, eps, sampler, T, method, nrOfFirstEigenV
 
 
         else:
-            print('Error in sampler class: dimension_reduction function did not match any method.\n CHoose from: TMDiffmap, PCA, DiffMap')
+            print('Error in sampler class: dimension_reduction function did not match any method.\n CHoose from: TMDiffmap, PCA, Diffmap')
 
         return v1, qTargetDistribution, qEstimated, E, kernelDiff
+
+
+
+def dominantEigenvectorDiffusionMap2(tr, eps, sampler, T, method, nrOfFirstEigenVectors=2, numberOfNeighborsPotential=1):
+
+        print("Temperature in dominantEigenvectorDiffusionMap is "+repr(sampler.kT/sampler.model.kB_const))
+
+
+
+#        print('Initialize kernel')
+
+        print('Compute kernel')
+        #kernel = krnl.Kernel(epsilon=eps)
+        #kernel.fit(tr)
+        #kernel_all = kernel.compute(tr)
+        kernel_all = dm.compute_kernel(tr, eps)
+        print('Kernel computation done')
+
+        qTargetDistribution=np.zeros(len(tr))
+        E=np.zeros(len(tr))
+        Esmooth=np.zeros(len(tr))
+
+        firstNNeighbors=5
+        for i in range(0,len(tr)):
+                    tmp=tr[i].reshape(sampler.model.testsystem.positions.shape)#*sampler.model.x_unit
+                    #E[i]=sampler.model.energy(tmp) #/ sampler.model.energy_unit
+                    #print(tmp)
+                    Etmp= sampler.model.energy(tmp)
+                    E[i]=Etmp.value_in_unit(sampler.model.energy_unit)
+
+        for i in range(0,len(tr)):
+                    tmp=tr[i].reshape(sampler.model.testsystem.positions.shape)#*sampler.model.x_unit
+                    #E[i]=sampler.model.energy(tmp) #/ sampler.model.energy_unit
+                    #print(tmp)
+                    Etmp= E[i]
+
+                    idx=np.argsort(kernel_all[i].data)[-(firstNNeighbors+1):-1]
+                    ee=Etmp
+                    for j in range(len(idx)):
+                        ee+=E[idx[j]]
+                    Etmp=ee/(len(idx)+1)
+                    Esmooth[i]=Etmp
+                    #print(Etmp)
+                    betatimesH_unitless =Etmp / sampler.kT.value_in_unit(sampler.model.energy_unit) #* sampler.model.temperature_unit
+                    qTargetDistribution[i]=np.exp(-(betatimesH_unitless))
+                    #print(betatimesH_unitless)
+                    #E[i]=Etmp.value_in_unit(unit.kilocalorie_per_mole)
+
+
+
+        E=Esmooth
+
+        # for i in range(0,len(tr)):
+        #     tmp=tr[i].reshape(sampler.model.testsystem.positions.shape)#*sampler.model.x_unit
+        #     #E[i]=sampler.model.energy(tmp) #/ sampler.model.energy_unit
+        #     #print(tmp)
+        #     Etmp= sampler.model.energy(tmp)
+        #
+        #     #print(Etmp)
+        #     betatimesH_unitless =Etmp / sampler.kT #* sampler.model.temperature_unit
+        #     qTargetDistribution[i]=np.exp(-(betatimesH_unitless))
+        #     #print(betatimesH_unitless)
+        #     E[i]=Etmp.value_in_unit(sampler.model.energy_unit)
+
+
+        if method=='PCA':
+
+            X_pca = decomposition.TruncatedSVD(n_components=1).fit_transform(tr- np.mean(tr,axis=0))
+            v1=X_pca[:,0]
+
+            qEstimated = qTargetDistribution
+            kernelDiff=[]
+
+            if(nrOfFirstEigenVectors>2):
+                print('For PCA, nrOfFirstEigenVectors must be 1')
+
+        elif method == 'Diffmap':
+
+            # if isinstance(tr, md.Trajectory):
+            #     kernelDiff=dm.compute_kernel_mdtraj(tr, eps)
+            # else:
+            #
+            #     kernelDiff=dm.compute_kernel(tr, eps)
+            kernelDiff=kernel_all
+
+            P=dm.compute_P(kernelDiff, tr)
+            qEstimated = kernelDiff.sum(axis=1)
+
+            #print(eps)
+            #X_se = manifold.spectral_embedding(P, n_components = 1, eigen_solver = 'arpack')
+            #V1=X_se[:,0]
+
+            lambdas, V = sps.linalg.eigsh(P, k=(nrOfFirstEigenVectors))#, which='LM' )
+            ix = lambdas.argsort()[::-1]
+            X_se= V[:,ix]
+
+            v1=X_se[:,1:]
+            #v2=X_se[:,2]
+            #V2=X_se[:,1]
+
+        elif method =='TMDiffmap': #target measure diffusion map
+
+            P, qEstimated, kernelDiff = dm.compute_unweighted_P( tr,eps, sampler, qTargetDistribution, kernel=kernel_all )
+            lambdas, eigenvectors = sps.linalg.eigs(P, k=(nrOfFirstEigenVectors))#, which='LM' )
+            lambdas = np.real(lambdas)
+
+            ix = lambdas.argsort()[::-1]
+            X_se= eigenvectors[:,ix]
+            lambdas = lambdas[ix]
+
+
+            v1=np.real(X_se[:,1:])
+            # scale eigenvectors with eigenvalues
+            v1 = np.dot(v1,np.diag(lambdas[1:]))
+
+
+        else:
+            print('Error in sampler class: dimension_reduction function did not match any method.\n CHoose from: TMDiffmap, PCA, Diffmap')
+
+        return v1, qTargetDistribution, qEstimated, E, kernelDiff
+
+
 
 def dimension_reduction(tr, eps, numberOfLandmarks, sampler, T, method):
 

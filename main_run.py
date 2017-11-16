@@ -121,24 +121,29 @@ if args.temporaryFile ==0:
     dataFileName='Data/'+str(modelName)+'/'+str(algoName)+'/Traj/'
     dataFileNameFrontierPoints='Data/'+str(modelName)+'/'+str(algoName)+'/Traj/FrontierPoints/'
     dataFileNameEigenVectors='Data/'+str(modelName)+'/'+str(algoName)+'/Traj/Eigenvectors/'
-
+    dataFileEnergy='Data/'+str(modelName)+'/'+str(algoName)+'/Traj/Energies/'
 else:
 
     dataFileName='TemporaryData/'+str(modelName)+'/'+str(algoName)+'/Traj/'
     dataFileNameFrontierPoints='TemporaryData/'+str(modelName)+'/'+str(algoName)+'/Traj/FrontierPoints/'
     dataFileNameEigenVectors='TemporaryData/'+str(modelName)+'/'+str(algoName)+'/Traj/Eigenvectors/'
+    dataFileEnergy='TemporaryData/'+str(modelName)+'/'+str(algoName)+'/Traj/Energies/'
 
 
 
-newpath = os.path.join(os.getcwd(),dataFileName)#+ general_sampler.algorithmName
+newpath = os.path.join(os.getcwd(),dataFileName)
 if not os.path.exists(newpath):
         os.makedirs(newpath)
 
-newpath = os.path.join(os.getcwd(),dataFileNameFrontierPoints)#+ general_sampler.algorithmName
+newpath = os.path.join(os.getcwd(),dataFileNameFrontierPoints)
 if not os.path.exists(newpath):
         os.makedirs(newpath)
 
-newpath = os.path.join(os.getcwd(),dataFileNameEigenVectors)#+ general_sampler.algorithmName
+newpath = os.path.join(os.getcwd(),dataFileNameEigenVectors)
+if not os.path.exists(newpath):
+        os.makedirs(newpath)
+
+newpath = os.path.join(os.getcwd(),dataFileEnergy)
 if not os.path.exists(newpath):
         os.makedirs(newpath)
 
@@ -149,18 +154,18 @@ if not os.path.exists(newpath):
 integrator=integrator.Integrator( model=mdl, gamma=gamma, temperature=temperature, temperatureAlpha=temperatureAlpha, dt=dt, massScale=massScale, gammaScale=gammaScale, kappaScale=kappaScale)
 
 
-general_sampler=sampler.Sampler(model=mdl, integrator=integrator, algorithm=iAlgo, dataFileName=dataFileName, dataFrontierPointsName = dataFileNameFrontierPoints, dataEigenVectorsName =dataFileNameEigenVectors)
+general_sampler=sampler.Sampler(model=mdl, integrator=integrator, algorithm=iAlgo, dataFileName=dataFileName, dataFrontierPointsName = dataFileNameFrontierPoints, dataEigenVectorsName =dataFileNameEigenVectors, dataEnergyName = dataFileEnergy)
 
 # nrSteps is number of steps for each nrRep , and iterate the algo nrIterations times - total simulation time is nrSteps x nrIterations
 nrSteps=args.nrSteps
-nrEquilSteps = 0#10000 #10000
+nrEquilSteps = 10000 #10000
 nrIterations=args.niterations
 nrRep=args.nreplicas
 
 print('Simulation time: '+repr(nrSteps*nrIterations*dt.value_in_unit(unit.femtosecond))+' '+str(unit.femtosecond)+'\n ***** \n' )
 #
 if (nrEquilSteps>0):
-    print('Equilibration: '+repr(nrEquilSteps*dt.value_in_unit(unit.femtosecond))+' '+str(unit.femtosecond)+'\n ***** \n' )
+    print('Equilibration: '+repr(nrEquilSteps*dt.value_in_unit(unit.picosecond))+' '+str(unit.picosecond)+'\n ***** \n' )
     general_sampler.runStd(nrEquilSteps, 1, 1)
     general_sampler.resetInitialConditions()
 # run the simulation

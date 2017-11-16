@@ -23,6 +23,10 @@ class Model():
     def __init__(self, modelName='Dimer'):
 
 
+        self.energy_unit = unit.kilojoule_per_mole#kilojoule_per_mole
+
+
+
         self.modelName = modelName
         if (self.modelName == 'Dimer'):
 
@@ -81,7 +85,6 @@ class Model():
         #     self.context.minimizeEnergy(tolerance=2.0)
 
         self.x_unit = self.positions.unit
-        self.energy_unit = unit.kilojoule_per_mole
         self.force_unit = unit.kilocalorie_per_mole / self.x_unit
         self.time_unit = unit.femtosecond
         self.velocity_unit = self.x_unit / self.time_unit
@@ -93,7 +96,6 @@ class Model():
         self.masses = 1.0 * self.mass_unit
 
         self.fixOneParticle=0
-
 
 
     def energy(self,x):
@@ -128,11 +130,11 @@ class Model():
 
     def createDimer(self):
 
-
-        K=1 * unit.kilocalories_per_mole / unit.angstrom**2#290.1 * unit.kilocalories_per_mole / unit.angstrom**2
-        r0=1.550 * unit.angstroms
-        w=1.0 * unit.angstroms
-        h=0.1 * unit.kilocalories_per_mole / unit.angstrom**2
+        position_unit= unit.nanometer
+        K=1 * self.energy_unit / position_unit**2#290.1 * unit.kilocalories_per_mole / unit.angstrom**2
+        r0=1.550 * position_unit
+        w=1.0 * position_unit
+        h=0.1 * self.energy_unit / position_unit**2
         m1=39.948 * unit.amu
         m2=39.948 * unit.amu
         constraint=False
