@@ -54,7 +54,7 @@ class Sampler():
         self.dim=3
         self.dimCV=1
 
-        self.method='Diffmap'#'TMDiffmap'#'Diffmap'
+        self.method='TMDiffmap'#'TMDiffmap'#'Diffmap'
 
         #diffusion maps constants
         self.epsilon=2.0 #0.05
