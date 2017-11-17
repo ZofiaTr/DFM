@@ -25,7 +25,7 @@ import rmsd
 import time
 import mdtraj as md
 
-import kernel as krnl
+#import kernel as krnl
 
 maxDataLength=2000
 everyN=1
