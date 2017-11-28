@@ -13,6 +13,8 @@ import numpy as np
 
 import diffusionmap as dm
 
+from pydiffmap import diffusion_map as pydm
+
 import integrator
 import linear_approximation as aprx
 import Averages as av
@@ -47,7 +49,7 @@ class Sampler():
         self.integrator=integrator
 
         #set the temperature here - then passed to the integrator
-        self.kT=self.integrator.kT#temperature
+        self.kT=self.integrator.kT
 
         self.timeAv=av.Average(0.0)
 
@@ -117,6 +119,7 @@ class Sampler():
 
         self.saveEigenvectors=1
         self.saveEnergy=1
+        self.smoothEnergyFlag=0
 
 
 
@@ -256,6 +259,7 @@ class Sampler():
                 #self.sampled_trajectory=np.concatenate((tmpselftraj,np.copy(Xrep[-1].value_in_unit(self.model.x_unit))))
 
                 self.trajSave=md.Trajectory(xyz, self.topology)
+                #self.trajSave = self.trajSave.center_coordinates()
                 print(self.trajSave)
 
                 print('Saving traj to file')
@@ -842,6 +846,13 @@ class Sampler():
             else:
                 print('Frontier points algorithm on')
 
+            if self.method=='TMDiffmap':
+                if (self.smoothEnergyFlag==1):
+                    print('Smoothing energy for the target distribution is on')
+                else:
+                    print('Smoothing energy for the target distribution is off')
+
+
 
             #intialisation
             initialPositions=[self.integrator.x0 for rep in range(0,nrRep)]
@@ -850,6 +861,7 @@ class Sampler():
             ##############################
 
             xyz_history = list()
+            potentialEnergy_history = list()
 
             for it in range(0,nrIterations):
 
@@ -885,7 +897,7 @@ class Sampler():
                     potentialEnergyList=list()
 
                     print('Simulating at higher temperature')
-                    ratioStepsHigherTemperature=0.2
+                    ratioStepsHigherTemperature=0.1
 
                     for rep in range(0, nrRep):
 
@@ -946,7 +958,7 @@ class Sampler():
 
                 # creat md traj object
                 self.trajSave=md.Trajectory(xyz, self.topology)
-
+                self.trajSave = self.trajSave.center_coordinates()
 
                 #DEBUG
                 # for i in range(len(self.trajSave)):
@@ -964,15 +976,27 @@ class Sampler():
 
 
                 xyz_history += xyz
+                potentialEnergy_history += potentialEnergyList
 
                 xyz_tr = xyz_history
                 trajMD=md.Trajectory(xyz_tr, self.topology)
 
+                if self.saveEnergy ==1:
+                    potentialEnergyShort=potentialEnergy_history
+                else:
+                    potentialEnergyShort=None
+
                 print('Current shape of traj is '+repr(trajMD.xyz.shape))
-                while(len(trajMD)>2000):
+                while(len(trajMD)>maxDataLength):
                     trajMD=trajMD[::2]
+                if self.saveEnergy ==1:
+                    while(len(potentialEnergyShort)>maxDataLength):
+                        potentialEnergyShort = potentialEnergyShort[::2]
+
                 print('Sparsed shape of traj is '+repr(trajMD.xyz.shape))
 
+                # if self.saveEnergy ==1:
+                #     assert( len(potentialEnergyShort) == len(trajMD)), 'energy length does not match the trajectory length'
 
                 traj =  trajMD.xyz.reshape((trajMD.xyz.shape[0], self.trajSave.xyz.shape[1]*self.trajSave.xyz.shape[2]))
 
@@ -980,7 +1004,7 @@ class Sampler():
                 #------ compute CV and reset initial conditions------------------------------
 
                 if(self.corner==0):
-                    V1, q, qEstimated, potEn, kernelDiff=dominantEigenvectorDiffusionMap(traj, self.epsilon, self, self.kT, self.method)
+                    V1, q, qEstimated, potEn, kernelDiff=dominantEigenvectorDiffusionMap(traj, self.epsilon, self, self.kT, self.method, energy = potentialEnergyShort, smoothedEnergy = self.smoothEnergyFlag)
 
                     idxMaxV1 = np.argmax(np.abs(V1))
 
@@ -994,7 +1018,8 @@ class Sampler():
 
                     nrFEV = 2
                     # V1 is matrix with first nrFEV eigenvectors
-                    V1, q, qEstimated, potEn, kernelDiff=dominantEigenvectorDiffusionMap(traj, self.epsilon, self, self.kT, self.method, nrOfFirstEigenVectors=nrFEV+1)
+                    V1, q, qEstimated, potEn, kernelDiff=dominantEigenvectorDiffusionMap(traj, self.epsilon, self, self.kT, self.method, nrOfFirstEigenVectors=nrFEV+1, energy = potentialEnergyShort, smoothedEnergy = self.smoothEnergyFlag)
+
 
                     ### replace this part till **
                     # select a random point and compute distances to it
@@ -1097,33 +1122,93 @@ def reshapeDataBack(traj):
 ###########################################################
 
 
-def dominantEigenvectorDiffusionMap(tr, eps, sampler, T, method, nrOfFirstEigenVectors=2, numberOfNeighborsPotential=1):
+def dominantEigenvectorDiffusionMap(tr, eps, sampler, T, method, nrOfFirstEigenVectors=2, numberOfNeighborsPotential=1, energy = None, smoothedEnergy = False):
 
         print("Temperature in dominantEigenvectorDiffusionMap is "+repr(sampler.kT/sampler.model.kB_const))
 
-        qTargetDistribution=np.zeros(len(tr))
-        E=np.zeros(len(tr))
+        #TODO this should be optimized, I am trying to make it bugfree by now..
+        if method=='TMDiffmap':
+            if smoothedEnergy == True:
+                #precompute the kernel to use it to smooth out the energy
+                print('Compute kernel')
+                kernel_all = dm.compute_kernel(tr, eps)
+                print('Kernel computation done')
 
-        for i in range(0,len(tr)):
-            tmp=tr[i].reshape(sampler.model.testsystem.positions.shape)#*sampler.model.x_unit
-            #E[i]=sampler.model.energy(tmp) #/ sampler.model.energy_unit
-            #print(tmp)
-            Etmp= sampler.model.energy(tmp)
+                firstNNeighbors=5
 
-            #print(Etmp)
-            betatimesH_unitless =Etmp / sampler.kT #* sampler.model.temperature_unit
-            qTargetDistribution[i]=np.exp(-(betatimesH_unitless))
-            #print(betatimesH_unitless)
-            E[i]=Etmp.value_in_unit(sampler.model.energy_unit)
+            qTargetDistribution=np.zeros(len(tr))
+            E=np.zeros(len(tr))
 
+            if energy == None:
+
+                if smoothedEnergy==False:
+
+                    for i in range(0,len(tr)):
+                        tmp=tr[i].reshape(sampler.model.testsystem.positions.shape)#*sampler.model.x_unit
+                        Etmp= sampler.model.energy(tmp)
+
+                        betatimesH_unitless =Etmp / sampler.kT
+                        qTargetDistribution[i]=np.exp(-(betatimesH_unitless))
+                        E[i]=Etmp.value_in_unit(sampler.model.energy_unit)
+
+                else:
+
+                    #compute the energies
+                    for i in range(0,len(tr)):
+                                tmp=tr[i].reshape(sampler.model.testsystem.positions.shape)
+                                Etmp= sampler.model.energy(tmp)
+                                E[i]=Etmp.value_in_unit(sampler.model.energy_unit)
+                    #smooth the energies
+                    Esmooth=np.zeros(len(tr))
+                    for i in range(0,len(tr)):
+                                Etmp= E[i]
+
+                                idx=np.argsort(kernel_all[i].data)[-(firstNNeighbors+1):-1]
+                                ee=Etmp
+                                for j in range(len(idx)):
+                                    ee+=E[idx[j]]
+                                Etmp=ee/(len(idx)+1)
+                                Esmooth[i]=Etmp
+                                betatimesH_unitless =Etmp / sampler.kT.value_in_unit(sampler.model.energy_unit) #* sampler.model.temperature_unit
+                                qTargetDistribution[i]=np.exp(-(betatimesH_unitless))
+
+                    E=Esmooth
+
+            else:
+                    if smoothedEnergy==False:
+
+                        for i in range(0,len(tr)):
+                            Etmp= energy[i] * sampler.model.energy_unit
+                            betatimesH_unitless =Etmp / sampler.kT #* sampler.model.temperature_unit
+                            qTargetDistribution[i]=np.exp(-(betatimesH_unitless))
+                            E[i]=energy[i]
+
+                    else:
+                        Esmooth=np.zeros(len(tr))
+                        #smooth the energies
+                        for i in range(0,len(tr)):
+                                    idx=np.argsort(kernel_all[i].data)[-(firstNNeighbors+1):-1]
+                                    ee=E[i]
+                                    for j in range(len(idx)):
+                                        ee+=E[idx[j]]
+                                    Etmp=ee/(len(idx)+1)
+                                    Esmooth[i]=Etmp
+                                    betatimesH_unitless =Etmp / sampler.kT.value_in_unit(sampler.model.energy_unit) #* sampler.model.temperature_unit
+                                    qTargetDistribution[i]=np.exp(-(betatimesH_unitless))
+
+                        E=Esmooth
+        else:
+            qTargetDistribution=None
+            E = None
+            kernelDiff=None
 
         if method=='PCA':
 
             X_pca = decomposition.TruncatedSVD(n_components=1).fit_transform(tr- np.mean(tr,axis=0))
             v1=X_pca[:,0]
 
-            qEstimated = qTargetDistribution
-            kernelDiff=[]
+            #qEstimated = qTargetDistribution
+            #kernelDiff=[]
 
             if(nrOfFirstEigenVectors>2):
                 print('For PCA, nrOfFirstEigenVectors must be 1')
@@ -1153,19 +1238,25 @@ def dominantEigenvectorDiffusionMap(tr, eps, sampler, T, method, nrOfFirstEigenV
 
         elif method =='TMDiffmap': #target measure diffusion map
 
-            P, qEstimated, kernelDiff = dm.compute_unweighted_P( tr,eps, sampler, qTargetDistribution )
-            lambdas, eigenvectors = sps.linalg.eigs(P, k=(nrOfFirstEigenVectors))#, which='LM' )
-            lambdas = np.real(lambdas)
+            # P, qEstimated, kernelDiff = dm.compute_unweighted_P( tr,eps, sampler, qTargetDistribution )
+            # lambdas, eigenvectors = sps.linalg.eigs(P, k=(nrOfFirstEigenVectors))#, which='LM' )
+            # lambdas = np.real(lambdas)
+            #
+            # ix = lambdas.argsort()[::-1]
+            # X_se= eigenvectors[:,ix]
+            # lambdas = lambdas[ix]
+            #
+            #
+            # v1=np.real(X_se[:,1:])
+            # # scale eigenvectors with eigenvalues
+            # v1 = np.dot(v1,np.diag(lambdas[1:]))
+            chosenMetric=dm.myRMSDmetricPrecentered
+            mytdmap = pydm.DiffusionMap(alpha =1, n_evecs = nrOfFirstEigenVectors, epsilon = eps, k=200, metric=chosenMetric)
+            tmdmap = mytdmap.fit_transform(tr, weights = qTargetDistribution)
 
-            ix = lambdas.argsort()[::-1]
-            X_se= eigenvectors[:,ix]
-            lambdas = lambdas[ix]
-
-
-            v1=np.real(X_se[:,1:])
-            # scale eigenvectors with eigenvalues
-            v1 = np.dot(v1,np.diag(lambdas[1:]))
-
+            qEstimated = mytdmap.q
+            kernelDiff=mytdmap.local_kernel
+            v1=tmdmap
 
         else:
             print('Error in sampler class: dimension_reduction function did not match any method.\n CHoose from: TMDiffmap, PCA, Diffmap')
@@ -1263,7 +1354,7 @@ def dominantEigenvectorDiffusionMap2(tr, eps, sampler, T, method, nrOfFirstEigen
             #X_se = manifold.spectral_embedding(P, n_components = 1, eigen_solver = 'arpack')
             #V1=X_se[:,0]
 
-            lambdas, V = sps.linalg.eigsh(P, k=(nrOfFirstEigenVectors))#, which='LM' )
+            lambdas, V = sps.linalg.eigss(P, k=(nrOfFirstEigenVectors))#, which='LM' )
             ix = lambdas.argsort()[::-1]
             X_se= V[:,ix]
 
@@ -1296,6 +1387,7 @@ def dominantEigenvectorDiffusionMap2(tr, eps, sampler, T, method, nrOfFirstEigen
 
 def dimension_reduction(tr, eps, numberOfLandmarks, sampler, T, method):
 
+        assert(False), 'under construction: dominantEigenvectorDiffusionMap has changed '
         v1, q, qEstimated, potEn, kernelDiff=dominantEigenvectorDiffusionMap(tr, eps, sampler, T, method)
 
             #get landmarks

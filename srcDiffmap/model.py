@@ -16,16 +16,14 @@ from openmmtools.constants import kB
 #modelName='Lemon'
 #modelName='Dimer'
 
-modelName='Alanine'
+modelName='Dimer'
 
 class Model():
 
     def __init__(self, modelName='Dimer'):
 
 
-        self.energy_unit = unit.kilojoule_per_mole#kilojoule_per_mole
-
-
+        self.energy_unit = unit.kilojoule_per_mole
 
         self.modelName = modelName
         if (self.modelName == 'Dimer'):
@@ -84,6 +82,7 @@ class Model():
         # if(relax == 1):
         #     self.context.minimizeEnergy(tolerance=2.0)
 
+
         self.x_unit = self.positions.unit
         self.force_unit = unit.kilocalorie_per_mole / self.x_unit
         self.time_unit = unit.femtosecond
@@ -130,15 +129,16 @@ class Model():
 
     def createDimer(self):
 
-        position_unit= unit.nanometer
-        K=1 * self.energy_unit / position_unit**2#290.1 * unit.kilocalories_per_mole / unit.angstrom**2
+        position_unit= unit.angstrom
+        K=1.0 * unit.kilocalories_per_mole / unit.angstroms**2
+        #1 * self.energy_unit / position_unit**2#290.1 * unit.kilocalories_per_mole / unit.angstrom**2
         r0=1.550 * position_unit
-        w=1.0 * position_unit
+        w=1.0* position_unit
         h=0.1 * self.energy_unit / position_unit**2
-        m1=39.948 * unit.amu
-        m2=39.948 * unit.amu
+        m1=12.0 * unit.amu
+        m2=12.0 * unit.amu
         constraint=False
-        use_central_potential=False
+        use_central_potential=True
 
         testsystem =testsystems.TestSystem( K=K,
                  r0=r0,
@@ -175,12 +175,12 @@ class Model():
             system.addConstraint(0, 1, r0)
 
         # Set the positions.
-        positions = unit.Quantity(np.zeros([2, 3], np.float32), unit.angstroms)
+        positions = unit.Quantity(np.zeros([2, 3], np.float32), position_unit)
         positions[1, 0] = r0
 
         if use_central_potential:
             # Add a central restraining potential.
-            Kcentral = 1.0 * unit.kilocalories_per_mole / unit.nanometer**2
+            Kcentral = 1.0 * unit.kilocalories_per_mole / position_unit**2
             energy_expression = '(K/2.0) * (x^2 + y^2 + z^2);'
             #energy_expression = '(K/2.0) * ((x^2 + y^2 + z^2)-1)^2;'
             energy_expression += 'K = testsystems_Diatom_Kcentral;'
@@ -189,6 +189,8 @@ class Model():
             force.addParticle(0, [])
             force.addParticle(1, [])
             system.addForce(force)
+
+
 
         # Create topology.
         topology = app.Topology()
@@ -305,6 +307,9 @@ class Model():
 
 
     def createEllipseTrimer(self):
+        """
+        NOT working: in progress
+        """
 
 
         K=1 * unit.kilocalories_per_mole / unit.angstrom**2#290.1 * unit.kilocalories_per_mole / unit.angstrom**2

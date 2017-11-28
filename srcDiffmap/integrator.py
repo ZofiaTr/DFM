@@ -184,7 +184,8 @@ class Integrator():
 
             v = state.getVelocities(asNumpy=True)
             e = state.getPotentialEnergy()
-            potEnergy.append(e/ self.model.energy_unit)
+            epot = e.value_in_unit(self.model.energy_unit)
+            potEnergy.append(epot)
             # Append to trajectory
             xyz.append(x / self.model.x_unit)
             # Store kinetic temperature

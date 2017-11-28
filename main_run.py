@@ -1,6 +1,6 @@
 """
  python  main_run_mpi.py arg
- example: python main_run.py --algorithm 11 --iterations 10 --replicas 5 --nrsteps 10000 --temporaryFolder 1
+ example: python main_run.py --algorithm 10 --iterations 10 --replicas 5 --nrsteps 10000 --temporaryFolder 1
 """
 
 
@@ -21,7 +21,7 @@ import model
 
 #create model defined in class model
 
-modelName = 'Alanine'
+modelName = 'Dimer'
 mdl=model.Model(modelName)
 
 print(mdl.x_unit)
@@ -42,7 +42,7 @@ parser.add_argument('--replicas', dest='nreplicas', type=int, default=10,
 parser.add_argument('--nrsteps', dest='nrSteps', type=int, default=1000,
                     help='number of replicas to use per iteration (default: 10)')
 parser.add_argument('--temporaryFolder', dest='temporaryFile', type=int, default=0,
-                    help='Save data to temporary folder.')
+                    help='0: save data into Data folder; 1: Save data to temporary folder; 2: another temporary folder ')
 
 args = parser.parse_args()
 
@@ -89,7 +89,7 @@ else:
     print('Error: wrong algorithm flag. ')
 
 # parameters
-T=300.0 #400
+T=500.0 #400
 temperature =  T * unit.kelvin#300 * unit.kelvin
 kT = kB * temperature
 
@@ -122,6 +122,14 @@ if args.temporaryFile ==0:
     dataFileNameFrontierPoints='Data/'+str(modelName)+'/'+str(algoName)+'/Traj/FrontierPoints/'
     dataFileNameEigenVectors='Data/'+str(modelName)+'/'+str(algoName)+'/Traj/Eigenvectors/'
     dataFileEnergy='Data/'+str(modelName)+'/'+str(algoName)+'/Traj/Energies/'
+
+elif args.temporaryFile ==2:
+
+    #dataFileName='Data/'+str(algoName)+'/Tsc'+str(int(TemperatureTAMDFactor))+'MS'+str(int(massScale))+'/Traj/'
+    dataFileName='TemporaryData2/'+str(modelName)+'/'+str(algoName)+'/Traj/'
+    dataFileNameFrontierPoints='TemporaryData2/'+str(modelName)+'/'+str(algoName)+'/Traj/FrontierPoints/'
+    dataFileNameEigenVectors='TemporaryData2/'+str(modelName)+'/'+str(algoName)+'/Traj/Eigenvectors/'
+    dataFileEnergy='TemporaryData2/'+str(modelName)+'/'+str(algoName)+'/Traj/Energies/'
 else:
 
     dataFileName='TemporaryData/'+str(modelName)+'/'+str(algoName)+'/Traj/'

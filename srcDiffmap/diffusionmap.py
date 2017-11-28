@@ -82,7 +82,7 @@ def compute_kernel(X, epsilon, myMetric=None, adaptive_epsilon=None):
 
     #calling nearest neighbor search class: returning a (sparse) distance matrix
     #albero = neigh_search.radius_neighbors_graph(X, radius = cutoff, mode='distance', p=2, include_self=None)
-    print('constructing neighbors graph')
+    print('constructing neighbors graph with metric '+repr(metric))
     albero = neigh_search.radius_neighbors_graph(X, radius=cutoff, mode='distance', metric = metric, include_self=None)#mode='pyfunc',, metric_params={'myRMSDmetric':myRMSDmetric}, include_self=None)
     print('neighbors graph done')
     #albero = neigh_search.radius_neighbors_graph(X.xyz, radius=cutoff, mode='pyfunc', metric_params={'func' : md.rmsd}, include_self=None)
@@ -186,9 +186,35 @@ def myRMSDmetric(arr1, arr2):
     p1MD=md.Trajectory(arr1, dummyModel.testsystem.topology)
     p2MD=md.Trajectory(arr2, dummyModel.testsystem.topology)
 
-    d=md.rmsd(p1MD, p2MD)
+    d=md.rmsd(p1MD, p2MD)#, precentered=True)
 
     return d
+
+def myRMSDmetricPrecentered(arr1, arr2):
+    """
+    This is built under the assumption that the space dimension is 3!!!
+    Requirement from sklearn radius_neighbors_graph: The callable should take two arrays as input and return one value indicating the distance between them.
+     Input: One row from reshaped xyz trajectory as number of steps times nDOF
+     Inside: Reshape back to md.Trajectory and apply md.rmsd as r=md.rmsd(X[i], X[j])
+     Output: r
+    """
+
+
+    nParticles = len(arr1) / 3;
+    assert (nParticles == int(nParticles))
+
+    arr1 = arr1.reshape(int(nParticles), 3 )
+    arr2 = arr2.reshape(int(nParticles), 3 )
+
+
+    p1MD=md.Trajectory(arr1, dummyModel.testsystem.topology)
+    p2MD=md.Trajectory(arr2, dummyModel.testsystem.topology)
+
+    d=md.rmsd(p1MD, p2MD, precentered=True)
+
+    return d
+
+
 
 def min_rmsd(arr1, arr2):
 
