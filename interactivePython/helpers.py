@@ -5,37 +5,20 @@ import mdtraj as md
 #---------------- load trajectories: for example from simulation at higher temperature
 import glob
 
-def loadData(dataName, top):
-    numpy_vars = []
-    #for np_name in glob.glob('/Users/zofia/github/DFM/Data/Std/Traj/T'+repr(simulatedTemperature)+ '/*.h5'):
-    for np_name in glob.glob(dataName):
-        numpy_vars.append(md.load(np_name))
+def loadData(dataName, top, modnr, align=False):
+    file_names = []
+    for np_name in glob.glob(dataName ):
+        file_names.append(np_name)
 
-    traj = numpy_vars
-    print(len(traj))
+    X = md.load(file_names, top, stride=modnr)
 
-    numberOfIterations=len(traj)
+    #print('ok')
+    if align:
+        X=X.center_coordinates()
+        X=X.superpose(X, 0)
 
-    Xmdtraj=list()
-    for i in range(numberOfIterations):
-        #print(traj[i][0].xyz)
-        Xmdtraj.append(md.Trajectory(traj[i].xyz, top))#mdl.testsystem.topology) )
+    X_FT=X.xyz
 
-    print(Xmdtraj[0].xyz.shape[2])
-    L=int(Xmdtraj[0].xyz.shape[0]*len(traj))
-    nrP=int(Xmdtraj[0].xyz.shape[1])
-    print(nrP)
-    D=int(Xmdtraj[0].xyz.shape[2])
-    X=np.zeros((L, nrP, D))
-    for i in range(0,len(Xmdtraj)):
-            X[i*len(Xmdtraj[i].xyz):(i+1)*len(Xmdtraj[i].xyz),:,:]=Xmdtraj[i].xyz
-
-    Xref=X
-
-    Xalign = md.Trajectory(X, top)
-    Xalign=Xalign.center_coordinates()
-    Xalign=Xalign.superpose(Xalign[0])
-    X_FT=Xalign.xyz
     return X_FT
 
 
@@ -68,19 +51,29 @@ def compute_radius(X):
 #
 #     return E
 
-def computeTargetMeasure(X_FT, smpl):
+def computeTargetMeasure(X_FT, smpl, Erecompute):
 
     qTargetDistribution=np.zeros(len(X_FT))
-    Erecompute=np.zeros(len(X_FT))
-    from simtk import unit
+
+
     for i in range(0,len(X_FT)):
-                Erecompute[i]=smpl.model.energy(X_FT[i,:,:]*smpl.model.x_unit).value_in_unit(smpl.model.energy_unit)
+                #Erecompute[i]=smpl.model.energy(X_FT[i,:,:]*smpl.model.x_unit).value_in_unit(smpl.model.energy_unit)
                 tmp = Erecompute[i]
                 betatimesH_unitless =tmp / smpl.kT.value_in_unit(smpl.model.energy_unit) #* smpl.model.temperature_unit
                 qTargetDistribution[i]=np.exp(-(betatimesH_unitless))
     print('Done')
 
-    return qTargetDistribution, Erecompute
+    return qTargetDistribution#, Erecompute
+
+def computeEnergy(X_FT, smpl):
+
+    qTargetDistribution=np.zeros(len(X_FT))
+    Erecompute=np.zeros(len(X_FT))
+    from simtk import unit
+    for i in range(0,len(X_FT)):
+                Erecompute[i]=smpl.model.energy(X_FT[i]*smpl.model.x_unit).value_in_unit(smpl.model.energy_unit)
+
+    return  Erecompute
 
 
 

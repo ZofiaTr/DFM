@@ -16,7 +16,7 @@ from openmmtools.constants import kB
 #modelName='Lemon'
 #modelName='Dimer'
 
-modelName='Dimer'
+modelName='Alanine'
 
 class Model():
 
@@ -63,6 +63,7 @@ class Model():
         #ala2
             self.testsystem = name(constraints=None)
 
+
         elif(self.modelName == 'LJCluster'):
             ## LJ cluster
             from openmmtools.testsystems import LennardJonesCluster
@@ -78,6 +79,15 @@ class Model():
 
         self.context = openmm.Context(self.system, dummy_integrator)
         self.context.setPositions(self.positions)
+
+        if(self.modelName == 'Alanine'):
+            # adjust periodic box
+            maxval = np.max(np.abs(np.vstack(self.positions.value_in_unit(self.positions.unit))))
+            boxsize = 20.0 * maxval
+            print('Maximal position value in one direction is '+repr(maxval))
+            print('PBC box size set to '+repr(boxsize))
+            edge = boxsize * self.testsystem.positions.unit
+            self.testsystem.system.setDefaultPeriodicBoxVectors([edge,0,0], [0,edge,0], [0,0,edge])
 
         # if(relax == 1):
         #     self.context.minimizeEnergy(tolerance=2.0)
@@ -133,12 +143,13 @@ class Model():
         K=1.0 * unit.kilocalories_per_mole / unit.angstroms**2
         #1 * self.energy_unit / position_unit**2#290.1 * unit.kilocalories_per_mole / unit.angstrom**2
         r0=1.550 * position_unit
+        L=2 * position_unit
         w=1.0* position_unit
         h=0.1 * self.energy_unit / position_unit**2
         m1=12.0 * unit.amu
         m2=12.0 * unit.amu
         constraint=False
-        use_central_potential=True
+        use_central_potential=False
 
         testsystem =testsystems.TestSystem( K=K,
                  r0=r0,
@@ -149,6 +160,10 @@ class Model():
 
         # Create an empty system object.
         system = openmm.System()
+
+        # adjust periodic box
+        edge = 6 * position_unit
+        system.setDefaultPeriodicBoxVectors([edge,0,0], [0,edge,0], [0,0,edge])
 
         # Add two particles to the system.
         system.addParticle(m1)
@@ -161,8 +176,10 @@ class Model():
         print("Dimer model: double-well with 2 states")
         print("State1: r="+repr(r0 ))
         print("State2: r="+repr(r0 + 2.0*w))
-        force = openmm.CustomBondForce("h * ( 1.0 - (( r - r0 - w )^2 / w^2) )^2 ");
+        #force = openmm.CustomBondForce("h * ( 1.0 - (( r - r0 - w )^2 / w^2) )^2 ");
+        force = openmm.CustomBondForce("h * ( 1.0 - (( r  - r0 - w )^2 / w^2) )^2 ");
 
+        force.addGlobalParameter("L", L);
         force.addGlobalParameter("r0", r0);
         force.addGlobalParameter("h", h);
         force.addGlobalParameter("w", w);

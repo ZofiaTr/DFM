@@ -1,6 +1,6 @@
 """
  python  main_run_mpi.py arg
- example: python main_run.py --algorithm 10 --iterations 10 --replicas 5 --nrsteps 10000 --temporaryFolder 1
+ example: python main_run.py --algorithm 0 --iterations 100 --replicas 5 --nrsteps 10000 --folderName 'DataEuclidean'
 """
 
 
@@ -21,7 +21,7 @@ import model
 
 #create model defined in class model
 
-modelName = 'Dimer'
+modelName = 'Alanine'
 mdl=model.Model(modelName)
 
 print(mdl.x_unit)
@@ -41,10 +41,14 @@ parser.add_argument('--replicas', dest='nreplicas', type=int, default=10,
                     help='number of replicas to use per iteration (default: 10)')
 parser.add_argument('--nrsteps', dest='nrSteps', type=int, default=1000,
                     help='number of replicas to use per iteration (default: 10)')
-parser.add_argument('--temporaryFolder', dest='temporaryFile', type=int, default=0,
-                    help='0: save data into Data folder; 1: Save data to temporary folder; 2: another temporary folder ')
+#parser.add_argument('--temporaryFolder', dest='temporaryFile', type=int, default=0,
+#                    help='0: save data into Data folder; 1: Save data to temporary folder; 2: another temporary folder ')
+parser.add_argument('--folderName', dest='saveToFileName', type=str, default='Data',
+                    help='Create folder and save data there')
 
 args = parser.parse_args()
+
+saveToFileName = args.saveToFileName
 
 #read imput parameters to choose the algorithm
 algoFlag=args.algoFlag
@@ -89,7 +93,7 @@ else:
     print('Error: wrong algorithm flag. ')
 
 # parameters
-T=500.0 #400
+T=100.0 #400
 temperature =  T * unit.kelvin#300 * unit.kelvin
 kT = kB * temperature
 
@@ -115,28 +119,10 @@ if iAlgo >0:
 
 #create folders to save the data
 
-if args.temporaryFile ==0:
-
-    #dataFileName='Data/'+str(algoName)+'/Tsc'+str(int(TemperatureTAMDFactor))+'MS'+str(int(massScale))+'/Traj/'
-    dataFileName='Data/'+str(modelName)+'/'+str(algoName)+'/Traj/'
-    dataFileNameFrontierPoints='Data/'+str(modelName)+'/'+str(algoName)+'/Traj/FrontierPoints/'
-    dataFileNameEigenVectors='Data/'+str(modelName)+'/'+str(algoName)+'/Traj/Eigenvectors/'
-    dataFileEnergy='Data/'+str(modelName)+'/'+str(algoName)+'/Traj/Energies/'
-
-elif args.temporaryFile ==2:
-
-    #dataFileName='Data/'+str(algoName)+'/Tsc'+str(int(TemperatureTAMDFactor))+'MS'+str(int(massScale))+'/Traj/'
-    dataFileName='TemporaryData2/'+str(modelName)+'/'+str(algoName)+'/Traj/'
-    dataFileNameFrontierPoints='TemporaryData2/'+str(modelName)+'/'+str(algoName)+'/Traj/FrontierPoints/'
-    dataFileNameEigenVectors='TemporaryData2/'+str(modelName)+'/'+str(algoName)+'/Traj/Eigenvectors/'
-    dataFileEnergy='TemporaryData2/'+str(modelName)+'/'+str(algoName)+'/Traj/Energies/'
-else:
-
-    dataFileName='TemporaryData/'+str(modelName)+'/'+str(algoName)+'/Traj/'
-    dataFileNameFrontierPoints='TemporaryData/'+str(modelName)+'/'+str(algoName)+'/Traj/FrontierPoints/'
-    dataFileNameEigenVectors='TemporaryData/'+str(modelName)+'/'+str(algoName)+'/Traj/Eigenvectors/'
-    dataFileEnergy='TemporaryData/'+str(modelName)+'/'+str(algoName)+'/Traj/Energies/'
-
+dataFileName=saveToFileName+'/'+str(modelName)+'/'+str(algoName)+'/Traj/'
+dataFileNameFrontierPoints=saveToFileName+'/'+str(modelName)+'/'+str(algoName)+'/Traj/FrontierPoints/'
+dataFileNameEigenVectors=saveToFileName+'/'+str(modelName)+'/'+str(algoName)+'/Traj/Eigenvectors/'
+dataFileEnergy=saveToFileName+'/'+str(modelName)+'/'+str(algoName)+'/Traj/Energies/'
 
 
 newpath = os.path.join(os.getcwd(),dataFileName)

@@ -179,7 +179,7 @@ class Integrator():
         # Run n_steps of dynamics
         for iteration in range(int(n_steps / save_interval)):
             self.langevin_integrator.step(save_interval)
-            state = self.context.getState(getPositions=True, getVelocities=True, getEnergy=True)
+            state = self.context.getState(getPositions=True, getVelocities=True, getEnergy=True, enforcePeriodicBox=True)
             x = state.getPositions(asNumpy=True)
 
             v = state.getVelocities(asNumpy=True)
