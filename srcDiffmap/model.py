@@ -83,7 +83,7 @@ class Model():
         if(self.modelName == 'Alanine'):
             # adjust periodic box
             maxval = np.max(np.abs(np.vstack(self.positions.value_in_unit(self.positions.unit))))
-            boxsize = 20.0 * maxval
+            boxsize = 10.0 * maxval
             print('Maximal position value in one direction is '+repr(maxval))
             print('PBC box size set to '+repr(boxsize))
             edge = boxsize * self.testsystem.positions.unit

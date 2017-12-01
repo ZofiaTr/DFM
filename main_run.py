@@ -1,6 +1,6 @@
 """
  python  main_run_mpi.py arg
- example: python main_run.py --algorithm 0 --iterations 100 --replicas 5 --nrsteps 10000 --folderName 'DataEuclidean'
+ example: python main_run.py --algorithm 10 --iterations 1000 --replicas 5 --nrsteps 10000 --folderName 'DataEuclidean'
 """
 
 
@@ -93,7 +93,7 @@ else:
     print('Error: wrong algorithm flag. ')
 
 # parameters
-T=100.0 #400
+T=300.0 #400
 temperature =  T * unit.kelvin#300 * unit.kelvin
 kT = kB * temperature
 
