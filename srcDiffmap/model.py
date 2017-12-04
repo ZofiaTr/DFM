@@ -16,7 +16,7 @@ from openmmtools.constants import kB
 #modelName='Lemon'
 #modelName='Dimer'
 
-modelName='Alanine'
+modelName='Dimer'
 
 class Model():
 

@@ -34,7 +34,7 @@ everyN=1
 writingEveryNSteps=1
 savingEveryNIterations=100
 adjustEpsilon=1
-saveModNr=100;
+saveModNr=10;
 
 class Sampler():
     """
