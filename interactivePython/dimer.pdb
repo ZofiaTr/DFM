@@ -1,0 +1,5 @@
+REMARK   1 CREATED WITH OPENMM 7.1.1, 2017-12-11
+HETATM    1  N    N2 A   1      -0.193  -1.776   0.300  1.00  0.00           N  
+HETATM    2  N    N2 A   1       0.193   1.776  -0.300  1.00  0.00           N  
+TER       3       N2 A   1
+END
