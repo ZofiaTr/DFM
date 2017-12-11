@@ -85,6 +85,7 @@ class Integrator():
 
         # Store trajectory
         xyz = list()
+        potEnergy = list()
 
         x = self.x0
 
@@ -130,13 +131,14 @@ class Integrator():
                 xyz.append(x / self.model.x_unit)
                 kinTemp = self.computeKineticTemperature(v)
                 self.kineticTemperature.addSample(kinTemp)
+                potEnergy.append(self.model.energy(x)/self.model.energy_unit)
 
             #print self.kineticTemperature.getAverage()
 
         self.xEnd=x
         self.vEnd=v
 
-        return xyz
+        return xyz, potEnergy
 
     def run_openmm_langevin(self, n_steps, save_interval=1):
         """Simulate n_steps of Langevin dynamics using openmmtools BAOAB

@@ -21,15 +21,21 @@ import Averages as av
 import model
 
 import scipy.sparse as sps
+import scipy.sparse.linalg as spsl
 import scipy.spatial.distance as scidist
 import rmsd
 
 import time
 import mdtraj as md
 
+
+import MDAnalysis as mda
+from MDAnalysis.analysis import align
+from MDAnalysis.analysis.rms import rmsd
+
 #import kernel as krnl
 
-maxDataLength=2000
+maxDataLength=5000
 everyN=1
 writingEveryNSteps=1
 savingEveryNIterations=100
@@ -61,7 +67,7 @@ class Sampler():
         self.method='TMDiffmap'#'TMDiffmap'#'Diffmap'
 
         #diffusion maps constants
-        self.epsilon=0.01 #0.05
+        self.epsilon=0.1 #0.05
         self.epsilon_Max=self.epsilon* (2.0**4)
 
         #linear approximation
@@ -249,7 +255,7 @@ class Sampler():
                     # each intial replica has initial condition
                     self.integrator.x0=initialPositions[rep]
 
-                    #xyz_iter=self.integrator.run_langevin(nrSteps, save_interval=self.modNr) # local Python
+                    #xyz_iter, potEnergy = self.integrator.run_langevin(nrSteps, save_interval=self.modNr) # local Python
                     xyz_iter, potEnergy = self.integrator.run_openmm_langevin(nrSteps, save_interval=self.modNr)
                     xyz += xyz_iter
                     if self.saveEnergy==1:
@@ -885,8 +891,10 @@ class Sampler():
                     if(it>0):# and it < nrIterations-2):
 
                         T = self.kT/ self.model.kB_const
-                        self.integrator.temperature = 5.0 * T # * self.model.temperature_unit
+                        self.integrator.temperature = T+500  * self.model.temperature_unit
                         print("Changing temperature to T="+repr(self.integrator.temperature))
+
+                        print('Simulating at higher temperature')
                     # if(it>0):
                     #     T = self.kT/self.model.temperature_unit / self.model.kB_const
                     #
@@ -898,7 +906,7 @@ class Sampler():
                     xyz = list()
                     potentialEnergyList=list()
 
-                    print('Simulating at higher temperature')
+
                     ratioStepsHigherTemperature=0.1
 
                     for rep in range(0, nrRep):
@@ -1134,8 +1142,10 @@ def dominantEigenvectorDiffusionMap(tr, eps, sampler, T, method, nrOfFirstEigenV
         chosenmetric = metric #'euclidean'#dm.myRMSDmetricPrecentered#
         print('Chosen metric for diffusionmap is '+str(chosenmetric))
 
+        X_FT =tr.reshape(tr.shape[0],sampler.model.testsystem.positions.shape[0],sampler.model.testsystem.positions.shape[1] )
+        tr = align_with_mdanalysis(X_FT, sampler);
 
-        E = computeEnergy(tr, sampler)
+        E = computeEnergy(tr, sampler, modelShape=True)
         qTargetDistribution= computeTargetMeasure(E, sampler)
 
         if method=='PCA':
@@ -1203,14 +1213,101 @@ def dominantEigenvectorDiffusionMap(tr, eps, sampler, T, method, nrOfFirstEigenV
             #     distances[i] = md.rmsd(traj, traj, i)
             # print(distances.shape)
 
-            mydmap = pydm.DiffusionMap(alpha = 1, n_evecs = 1, epsilon = eps,  k=1000, metric=chosenmetric)#, neighbor_params = {'n_jobs':-4})
-            dmap = mydmap.fit_transform(tr, weights = qTargetDistribution)
 
-            P = mydmap.P
-            labmdas = mydmap.evals
-            v1 = mydmap.evecs
-            qEstimated = mydmap.q
-            kernelDiff=mydmap.local_kernel
+
+            ##########
+            if chosenmetric=='rmsd':
+                trxyz=tr.reshape(tr.shape[0], sampler.model.testsystem.positions.shape[0],sampler.model.testsystem.positions.shape[1])
+                traj = md.Trajectory(trxyz, sampler.model.testsystem.topology)
+
+                indptr = [0]
+                indices = []
+                data = []
+                k = 1000
+                epsilon = eps
+
+                for i in range(traj.n_frames):
+                    # compute distances to frame i
+                    distances = md.rmsd(traj, traj, i)
+                    # this performs a partial sort so that idx[:k] are the indices of the k smallest elements
+                    idx = np.argpartition(distances, k)
+                    # retrieve corresponding k smallest distances
+                    distances = distances[idx[:k]]
+                    # append to data structure
+                    data.extend(np.exp(-1.0/epsilon*distances**2).tolist())
+                    indices.extend(idx[:k].tolist())
+                    indptr.append(len(indices))
+
+                kernel_matrix = sps.csr_matrix((data, indices, indptr), dtype=float, shape=(traj.n_frames, traj.n_frames))
+                local_kernel=kernel_matrix
+                # this is all stolen from pydiffmap
+                weights_tmdmap = qTargetDistribution
+
+                alpha = 1.0
+                q = np.array(kernel_matrix.sum(axis=1)).ravel()
+                # Apply right normalization
+                right_norm_vec = np.power(q, -alpha)
+                if weights_tmdmap is not None:
+                    right_norm_vec *= np.sqrt(weights_tmdmap)
+
+                m = right_norm_vec.shape[0]
+                Dalpha = sps.spdiags(right_norm_vec, 0, m, m)
+                kernel_matrix = kernel_matrix * Dalpha
+
+                # Perform  row (or left) normalization
+                row_sum = kernel_matrix.sum(axis=1).transpose()
+                n = row_sum.shape[1]
+                Dalpha = sps.spdiags(np.power(row_sum, -1), 0, n, n)
+                P = Dalpha * kernel_matrix
+
+                n_evecs = 2
+
+                evals, evecs = spsl.eigs(P, k=(n_evecs+1), which='LM')
+                ix = evals.argsort()[::-1][1:]
+                evals = np.real(evals[ix])
+                evecs = np.real(evecs[:, ix])
+                dmap = np.dot(evecs, np.diag(evals))
+
+
+                labmdas = evals
+                v1 = evecs
+                qEstimated = q
+                kernelDiff=local_kernel
+
+            elif chosenmetric=='euclidean':
+
+                epsilon=eps
+
+                tr = tr.reshape(tr.shape[0], tr.shape[1]*tr.shape[2])
+
+                mydmap = pydm.DiffusionMap(alpha = 1, n_evecs = 1, epsilon = epsilon,  k=100, metric='euclidean')#, neighbor_params = {'n_jobs':-4})
+                dmap = mydmap.fit_transform(tr, weights = qTargetDistribution)
+
+                P = mydmap.P
+                lambdas = mydmap.evals
+                v1 = mydmap.evecs
+
+                [evalsT, evecsT] = spsl.eigs(P.transpose(),k=1, which='LM')
+                phi = np.real(evecsT.ravel())
+
+                #q = mydmap.q
+
+                qEstimated = mydmap.q
+                kernelDiff=mydmap.local_kernel
+            else:
+                print('In tmdmap- metric not defined correctly: choose rmsd or euclidean.')
+
+
+            ##########
+
+            # mydmap = pydm.DiffusionMap(alpha = 1, n_evecs = 1, epsilon = eps,  k=1000, metric=chosenmetric)#, neighbor_params = {'n_jobs':-4})
+            # dmap = mydmap.fit_transform(tr, weights = qTargetDistribution)
+            #
+            # P = mydmap.P
+            # labmdas = mydmap.evals
+            # v1 = mydmap.evecs
+            # qEstimated = mydmap.q
+            # kernelDiff=mydmap.local_kernel
 
         else:
             print('Error in sampler class: dimension_reduction function did not match any method.\n CHoose from: TMDiffmap, PCA, Diffmap')
@@ -1233,16 +1330,19 @@ def computeTargetMeasure(Erecompute, smpl):
 
     return qTargetDistribution#, Erecompute
 
-def computeEnergy(X_reshaped, smpl):
+def computeEnergy(X_reshaped, smpl, modelShape = False):
 
-    X_FT =X_reshaped.reshape(X_reshaped.shape[0],smpl.model.testsystem.positions.shape[0],smpl.model.testsystem.positions.shape[1] )
+    if modelShape:
+        X_FT=X_reshaped
+    else:
+        X_FT =X_reshaped.reshape(X_reshaped.shape[0],smpl.model.testsystem.positions.shape[0],smpl.model.testsystem.positions.shape[1] )
     qTargetDistribution=np.zeros(len(X_FT))
     Erecompute=np.zeros(len(X_FT))
     from simtk import unit
     for i in range(0,len(X_FT)):
                 Erecompute[i]=smpl.model.energy(X_FT[i]*smpl.model.x_unit).value_in_unit(smpl.model.energy_unit)
 
-    return  Erecompute
+    return  Erecompute/2.0
 
 def dimension_reduction(tr, eps, numberOfLandmarks, sampler, T, method):
 
@@ -1282,7 +1382,7 @@ def currentGridCV(tr, lm, v1):
 def min_rmsd(X):
 
     #first frame
-    X0 = X[0]-  rmsd.centroid(X[0])
+    X0 = X[0] -  rmsd.centroid(X[0])
 
     for i in range(0,len(X)):
     #print "RMSD before translation: ", rmsd.kabsch_rmsd(Y[0],Y[1::])
@@ -1295,6 +1395,30 @@ def min_rmsd(X):
         #X[i] = np.dot(X[i], rot)
 
     return X
+
+
+
+#from MDAnalysis.tests.datafiles import PSF, DCD, PDB_small
+def align_with_mdanalysis(X_FT, smpl):
+    trj = mda.Universe(smpl.model.modelName+'.pdb', X_FT)
+    ref = mda.Universe(smpl.model.modelName+'.pdb')
+    # trj = mda.Universe('/Users/zofia/github/DFM/alanine.xyz', X_FT)
+    # print(trj.trajectory)
+    # ref = mda.Universe('/Users/zofia/github/DFM/alanine.xyz')#, X_FT[0,:,:])
+
+
+    alignment = align.AlignTraj(trj, ref)#, filename='rmsfit.dcd')
+    alignment.run()
+    X_aligned = np.zeros(X_FT.shape)
+    ci=0
+    for ts in trj.trajectory:
+        X_aligned[ci] = trj.trajectory.ts.positions
+        ci=ci+1
+
+    #X_aligned = (trj.trajectory.positions)
+    #print(X_aligned.shape)
+    #print(alignment)
+    return X_aligned
 
 # class ParallelRun():
 #

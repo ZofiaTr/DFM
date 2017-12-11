@@ -16,7 +16,7 @@ from openmmtools.constants import kB
 #modelName='Lemon'
 #modelName='Dimer'
 
-modelName='Dimer'
+modelName='Alanine'
 
 class Model():
 
@@ -106,6 +106,11 @@ class Model():
 
         self.fixOneParticle=0
 
+        #save Topology
+        openmm.app.PDBFile.writeFile(self.testsystem.topology, self.positions, open(self.modelName+'.pdb', 'w'))
+
+
+
 
     def energy(self,x):
         self.context.setPositions(x)
@@ -143,7 +148,7 @@ class Model():
         K=1.0 * unit.kilocalories_per_mole / unit.angstroms**2
         #1 * self.energy_unit / position_unit**2#290.1 * unit.kilocalories_per_mole / unit.angstrom**2
         r0=1.550 * position_unit
-        L=2 * position_unit
+        L= 2 * position_unit
         w=1.0* position_unit
         h=0.1 * self.energy_unit / position_unit**2
         m1=12.0 * unit.amu
@@ -186,6 +191,8 @@ class Model():
 
         force.addBond(0, 1, [])#, r0, h, w)
         system.addForce(force)
+
+        print(force.getNumEnergyParameterDerivatives())
 
         if constraint:
             # Add constraint between particles.
