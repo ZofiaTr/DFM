@@ -82,6 +82,7 @@ class Model():
 
         if(self.modelName == 'Alanine'):
             # adjust periodic box
+            ## TBD this should be moved inside the integrator class
             maxval = np.max(np.abs(np.vstack(self.positions.value_in_unit(self.positions.unit))))
             boxsize = 10.0 * maxval
             print('Maximal position value in one direction is '+repr(maxval))

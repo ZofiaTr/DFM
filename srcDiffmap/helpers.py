@@ -67,7 +67,7 @@ def computeTargetMeasure(X_FT, smpl, Erecompute):
 
 def computeEnergy(X_FT, smpl):
 
-    qTargetDistribution=np.zeros(len(X_FT))
+    
     Erecompute=np.zeros(len(X_FT))
     from simtk import unit
     for i in range(0,len(X_FT)):

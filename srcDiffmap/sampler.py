@@ -891,7 +891,7 @@ class Sampler():
                     if(it>0):# and it < nrIterations-2):
 
                         T = self.kT/ self.model.kB_const
-                        self.integrator.temperature = T+500  * self.model.temperature_unit
+                        self.integrator.temperature = T+200  * self.model.temperature_unit
                         print("Changing temperature to T="+repr(self.integrator.temperature))
 
                         print('Simulating at higher temperature')
@@ -1336,7 +1336,7 @@ def computeEnergy(X_reshaped, smpl, modelShape = False):
         X_FT=X_reshaped
     else:
         X_FT =X_reshaped.reshape(X_reshaped.shape[0],smpl.model.testsystem.positions.shape[0],smpl.model.testsystem.positions.shape[1] )
-    qTargetDistribution=np.zeros(len(X_FT))
+
     Erecompute=np.zeros(len(X_FT))
     from simtk import unit
     for i in range(0,len(X_FT)):
