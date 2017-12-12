@@ -95,25 +95,15 @@ class Sampler():
         if self.algorithm==1:
             self.algorithmName='eftad_fixed_cv'
         if self.algorithm==2:
-            self.algorithmName='eftad_diffmap_local'
-        if self.algorithm==3:
-            self.algorithmName='eftad_diffmap_only'
-        if self.algorithm==4:
-            self.algorithmName='eftad_diffmap_kinEn'
-        if self.algorithm==5:
-            self.algorithmName='modif_kinEn_force'
-        if self.algorithm==6:
-            self.algorithmName='modif_kinEn'
-        if self.algorithm==7:
             self.algorithmName='initial_condition'
-        if self.algorithm==8:
-            self.algorithmName='frontier_points'
-        if self.algorithm==9:
-            self.algorithmName='frontier_points_change_temperature'
-        if self.algorithm==10:
-            self.algorithmName='frontier_points_corner'
-        if self.algorithm==11:
-            self.algorithmName='corner_temperature_change_off'
+        # if self.algorithm==3:
+        #     self.algorithmName='frontier_points'
+        if self.algorithm==3:
+            self.algorithmName='frontier_points_corner_change_temperature'
+        # if self.algorithm==4:
+        #     self.algorithmName='frontier_points_corner'
+        if self.algorithm==4:
+            self.algorithmName='frontier_points_corner_change_temperature_off'
 
 
 
@@ -138,69 +128,35 @@ class Sampler():
             self.integrator.vz0=self.integrator.vzEnd
             self.integrator.kineticTemperature.clear()
 
+
+
     def run(self, nrSteps, nrIterations, nrRep):
 
         print('Model: '+self.model.modelname )
         print('Algorithm: '+self.algorithmName)
         print('Running '+repr(int(nrIterations))+'x '+repr(int(nrSteps))+' steps')
 
-        # TBD
-        # Look up function automatically
-        #run_function = getattr(self, 'run' + self.algorithmName)
-        #try:
-        #    run_function()
-        #exception Exception as e:
-        #    raise("Could not find run function '%s'" % ('run' + self.algorithmName))
+        run_function = getattr(self, 'run_' + self.algorithmName)
+        print(run_function)
+        try:
+            print("Running algorithm '%s'" % ('run_' + self.algorithmName))
+            run_function(nrSteps, nrIterations, nrRep)
+        except Exception:
+            raise("Could not find run function '%s'" % ('run_' + self.algorithmName))
 
-        if self.algorithm==0:
-            #working
-            self.runStd(nrSteps, nrIterations, nrRep)
-        if self.algorithm==1:
-            # under construction: needs general debug
-            self.runEftadFixedCV(nrSteps, nrIterations, nrRep)
-        if self.algorithm==2:
-            # under construction
-            self.runDiffmapCV_Eftad_local(nrSteps, nrIterations, nrRep)
-        if self.algorithm==3:
-            # under construction
-            self.runDiffmapCV_Eftad_only(nrSteps, nrIterations, nrRep)
-        if self.algorithm==4:
-            # under construction
-            self.runDiffmap_modifKinEn_local(nrSteps, nrIterations, nrRep)
-        if self.algorithm==5:
-            # under construction
-            self.runKinEnForce(nrSteps, nrIterations, nrRep)
-        if self.algorithm==6:
-            # under construction
-            self.runModifiedKineticEnergy(nrSteps, nrIterations, nrRep)
-        if self.algorithm==7:
-            # working
-            self.runInitialCondition(nrSteps, nrIterations, nrRep)
-        if self.algorithm==8:
-            # working
-            self.runFrontierPoints(nrSteps, nrIterations, nrRep)
-        if self.algorithm==9:
-            # in progress
-            self.changeTemperature = 1
-            self.runFrontierPoints(nrSteps, nrIterations, nrRep)
-        if self.algorithm==10:
-            # in progress
-            self.changeTemperature = 1
-            self.corner = 1
-            self.runFrontierPoints(nrSteps, nrIterations, nrRep)
-        if self.algorithm==11:
-            # in progress
-            self.changeTemperature = 0
-            self.corner = 1
+    def run_frontier_points_corner_change_temperature_off(self, nrSteps, nrIterations, nrRep):
+        self.changeTemperature = 0
+        self.corner = 1
+        self.run_frontierPoints(nrSteps, nrIterations, nrRep)
 
-            self.runFrontierPoints(nrSteps, nrIterations, nrRep)
-
-
-        #TBD add free energy sampling run
+    def run_frontier_points_corner_change_temperature(self, nrSteps, nrIterations, nrRep):
+        self.changeTemperature = 1
+        self.corner = 1
+        self.run_frontierPoints(nrSteps, nrIterations, nrRep)
 
 ######----------------- STD ---------------------------------
 
-    def runStd(self, nrSteps, nrIterations, nrRep):
+    def run_std(self, nrSteps, nrIterations, nrRep):
 
 
             #reset time
@@ -285,7 +241,7 @@ class Sampler():
 
 #----------------- TAMD/EFTAD
 
-    def runEftadFixedCV(self,nrSteps, nrIterations, nrRep):
+    def run_eftad_fixed_cv(self,nrSteps, nrIterations, nrRep):
         # use the eftad with CV as a projection on a x axis
 
             #reset time
@@ -337,445 +293,10 @@ class Sampler():
                 self.trajSave.save(self.savingFolder+'traj_'+repr(it)+'.h5')
 
 
-#----------------- TAMD/EFTAD
-
-    def runDiffmapCV_Eftad_local(self, nrSteps, nrIterations, nrRep):
-        # use the eftad with CV obtained from diffusion map
-
-            #reset time
-            self.timeAv.clear()
-            nrStepsEftad=int(2.0*nrSteps)
-            self.nrDecorrSteps=nrStepsEftad
-
-            print('The eftad with CV obtained from diffusion map. Langevin - '+repr(nrRep)+' replicas')
-
-            initialPositions=[self.integrator.x0 for rep in range(0,nrRep)]
-            #Xit=[self.model.positions for i in range(nrIterations*nrRep*nrSteps)]
-
-            self.landmarkedStates=[self.model.positions for i in range(nrIterations * self.numberOfLandmarks)]
-            ##############################
-
-
-
-            for it in range(0,nrIterations):
-
-                if(it>0):
-                    tav0=time.time()
-
-                if(np.remainder(it, writingEveryNSteps)==0):
-                    print('Iteration '+ repr(it))
-                    print('Kinetic Temperature is '+str(self.integrator.kineticTemperature.getAverage()))
-
-
-                    if(it>0):
-                        t_left=(self.timeAv.getAverage())*(nrIterations-it)
-                        print(time.strftime("Time left %H:%M:%S", time.gmtime(t_left)))
-
-                #------- simulate Langevin
-                xyz = list()
-                for rep in range(0, nrRep):
-
-                    self.integrator.x0=initialPositions[rep]
-                    x_iter, potEnergy = self.integrator.run_openmm_langevin(nrSteps, save_interval=self.modNr)
-                    xyz += x_iter
-                    initialPositions[rep] = xyz[-1]
-
-                 #-----save trajectory from the current Iteration
-                #for n in range(0,nrRep*nrSteps):
-                #    Xit[it* (nrRep*nrSteps) + n]=Xrep[n]
-
-                # creat md traj object
-                self.trajSave=md.Trajectory(xyz, self.topology)
-                #------ rmsd ------------------------------
-
-                #Y=min_rmsd(Xrep[::self.modNr])
-                #Y=Y*self.integrator.model.x_unit
-
-                # align all the frames wrt to the first one according to minimal rmsd
-                #self.trajSave.superpose(self.trajSave[0])
-                #print(self.trajSave.xyz.shape)
-                #------ reshape data ------------------------------
-
-                traj =  self.trajSave.xyz.reshape((self.trajSave.xyz.shape[0], self.trajSave.xyz.shape[1]*self.trajSave.xyz.shape[2]))
-                #traj=reshapeData(self.integrator.model, Y)
-                #traj=[self.trajSave.xyz]
-
-                #------ compute CV ------------------------------
-
-                landmarks, V1 = dimension_reduction(traj, self.epsilon, self.numberOfLandmarks, self, self.kT, self.method)
-                #landmarks, V1 = dimension_reduction(self.trajSave, self.epsilon, self.numberOfLandmarks, self.model, self.kT, self.method) # EXPERIMENTAL
-
-                # change the epsilon if there is not enough of landmarks
-                escape=0
-
-                while escape==0:
-                    if len(np.unique(landmarks)) < 0.8*len(landmarks) and self.epsilon < self.epsilon_Max:
-                        print('Increasing epsilon: epsilon = '+repr(self.epsilon))
-                        self.epsilon =self.epsilon*2
-                        landmarks, V1 = dimension_reduction(traj, self.epsilon, self.numberOfLandmarks, self, self.kT, self.method)
-                    else:
-                        escape=1
-
-
-                for nL in range(0, self.numberOfLandmarks):
-                    self.landmarkedStates[it*self.numberOfLandmarks+nL]=traj[landmarks]
-
-                #traj=reshapeData(self.integrator.model, Y)
-
-                dataLM=traj[landmarks]#* self.integrator.model.x_unit
-                VLM=V1[landmarks]#*self.integrator.model.x_unit
-
-
-                #dataLM=reshapeDataBack(dataLM, self.integrator.model.x_unit)
-
-                #dataLM=dataLM * self.integrator.model.x_unit
-                #VLM=VLM* self.integrator.model.x_unit
-
-                #compute piecewise derivatives
-                v=aprx.compute_all_derivatives(dataLM, V1[landmarks])#*
-                #v=reshapeDataBack(v, self.integrator.model.velocity_unit)
-                #print v.shape
-
-                ## find frontier point to start tamd from this point
-                idxMaxV1 = np.argmax(np.abs(V1))
-                #idxMinV1 = np.argmin(np.abs(V1))
-                tmp=traj[idxMaxV1].reshape(self.trajSave.xyz[0].shape)
-                frontierPoint = tmp* self.integrator.model.x_unit
-                #------- simulate eftad and reset initial positions for the next iteration
-
-                self.integrator.x0=initialPositions[0]* self.integrator.model.x_unit#frontierPoint
-                #self.integrator.x0=frontierPoint
-                xEftad,vEftad=self.integrator.run_EFTAD_adaptive(nrStepsEftad,  dataLM, VLM, v)
-
-                #print xEftad[-1]
-                if(np.isnan(xEftad[-1]).any() ):
-                    print('TAMD/AFED is nan, resetting trajectory.')
-                    self.integrator.x0=initialPositions[0]
-                else:
-
-                    self.integrator.x0=xEftad[-1]
-                xyz, potEnergy = self.integrator.run_openmm_langevin(self.nrDecorrSteps, save_interval=self.nrDecorrSteps)
-
-                initialPositions=[xyz[-1] for rep in range(0,nrRep)]
-
-
-                if(it>0):
-                    tavEnd=time.time()
-                    self.timeAv.addSample(tavEnd-tav0)
-
-                # xyz=[x.value_in_unit(self.model.x_unit) for x in Xrep[::self.modNr]]
-                # self.trajSave=md.Trajectory(xyz, self.topology)
-
-                xyz_eftad=[x.value_in_unit(self.model.x_unit) for x in xEftad[::self.modNr]]
-                trajEftad=md.Trajectory(xyz_eftad, self.topology)
-
-                print('Saving traj to file')
-                self.trajSave = self.trajSave[::self.modNr]
-                self.trajSave.save(self.savingFolder+'traj_'+repr(it)+'.h5')
-
-                self.trajSave.save(self.savingFolder+'trajTAMD_'+repr(it)+'.h5')
-
-
-#------------- TAMD only - also for constructing CV
-
-
-    def runDiffmapCV_Eftad_only(self, nrSteps, nrIterations, nrRep):
-            """WARNING: run_langevin API has changed, so this currently does not work."""
-            # use the eftad with CV obtained from diffusion map as for sampling
-
-            #reset time
-            self.timeAv.clear()
-            nrStepsEftad=int(nrSteps)
-
-            print('The eftad (only) with CV obtained from diffusion map: - '+repr(nrRep)+' replicas. No Langevin!\n')
-
-            initialPositions=[self.integrator.x0 for rep in range(0,nrRep)]
-            Xit=[self.model.positions for i in range(nrIterations*nrRep*nrSteps)]
-            Xrep=[self.model.positions for i in range(nrRep*nrSteps)]
-            self.landmarkedStates=[self.model.positions for i in range(nrIterations * self.numberOfLandmarks)]
-            ##############################
-
-            for it in range(0,nrIterations):
-
-                if(it>0):
-                    tav0=time.time()
-
-                if(np.remainder(it, writingEveryNSteps)==0):
-                    print('Iteration '+ repr(it))
-
-                    if(it>0):
-                        t_left=(self.timeAv.getAverage())*(nrIterations-it)
-                        print(time.strftime("Time left %H:%M:%S", time.gmtime(t_left)))
-
-                #------- at the first interation- simulate Langevin- then Eftad/tamd
-                for rep in range(0, nrRep):
-
-                    self.integrator.x0=initialPositions[rep]
-                    if it==0:
-                        # WARNING: run_langevin now returns xyz
-                        xs,vx=self.integrator.run_langevin(nrSteps)
-                    else:
-                        xs,vx=self.integrator.run_EFTAD_adaptive(nrStepsEftad,  dataLM, VLM, v)
-                    initialPositions[rep]=xs[-1]
-
-                    for n in range(0,nrSteps):
-                        Xrep[rep*nrSteps + n]=xs[n]
-
-                 #-----save trajectory from the current Iteration
-                for n in range(0,nrRep*nrSteps):
-                    Xit[it* (nrRep*nrSteps) + n]=Xrep[n]
-
-                #------ rmsd ------------------------------
-                #Y=Xrep[::self.modNr]
-                Y=min_rmsd(Xrep[::self.modNr])
-                Y=Y*self.integrator.model.x_unit
-
-                #------ reshape data ------------------------------
-
-                traj=reshapeData(self.integrator.model, Y)
-
-
-                #------ compute CV ------------------------------
-
-                landmarks, V1 = dimension_reduction(traj, self.epsilon, self.numberOfLandmarks, self, self.kT, self.method)
-
-                # change the epsilon if there is not enough of landmarks
-                escape=0
-
-                while escape==0:
-                    if len(np.unique(landmarks)) < 0.8*len(landmarks) and self.epsilon < self.epsilon_Max:
-                        print('Increasing epsilon: epsilon = '+repr(self.epsilon))
-                        self.epsilon =self.epsilon*2
-                        landmarks, V1 = dimension_reduction(traj, self.epsilon, self.numberOfLandmarks, self, self.kT, self.method)
-                    else:
-                        escape=1
-
-                for nL in range(0, self.numberOfLandmarks):
-                    self.landmarkedStates[it*self.numberOfLandmarks+nL]=Xit[landmarks[nL]]
-
-
-                dataLM=traj[landmarks, :]* self.integrator.model.x_unit
-                VLM=V1[landmarks]#*self.integrator.model.x_unit
-
-
-                #compute piecewise derivatives
-                v=aprx.compute_all_derivatives(traj[landmarks, :], V1[landmarks])#*
-
-                if(it>0):
-                    tavEnd=time.time()
-                    self.timeAv.addSample(tavEnd-tav0)
-
-                xyz=[x.value_in_unit(self.model.x_unit) for x in Xrep[::self.modNr]]
-                self.trajSave=md.Trajectory(xyz, self.topology)
-
-                print('Saving traj to file')
-                self.trajSave.save(self.savingFolder+'traj_'+repr(it)+'.h5')
-
-
-#----------------- modified Kinetic energy
-
-    def runDiffmap_modifKinEn_local(self, nrSteps, nrIterations, nrRep):
-        # use modified kinetic energy with CV instead of Langevin dynamics
-            eftadFlag=0
-            #reset time
-            self.timeAv.clear()
-            nrStepsEftad=nrRep*nrSteps;#int(0.5*nrSteps)
-
-            print('Modified kinetic energy Langevin dynamics: '+repr(nrRep)+' replicas')
-
-            initialPositions=[self.integrator.x0 for rep in range(0,nrRep)]
-            #Xit=[self.model.positions for i in range(nrIterations*nrRep*nrSteps)]
-
-            self.landmarkedStates=[self.model.positions for i in range(nrIterations * self.numberOfLandmarks)]
-            ##############################
-
-            for it in range(0,nrIterations):
-
-                if(it>0):
-                    tav0=time.time()
-
-                if(np.remainder(it, writingEveryNSteps)==0):
-                    print('Iteration '+ repr(it))
-
-                    if(it>0):
-                        t_left=(self.timeAv.getAverage())*(nrIterations-it)
-                        print(time.strftime("Time left %H:%M:%S", time.gmtime(t_left)))
-
-                #------- simulate Langevin
-                xyz = list()
-
-                for rep in range(0, nrRep):
-
-                    self.integrator.x0=initialPositions[rep]
-                    if it==0:
-                        x_iter, potEnergy = self.integrator.run_openmm_langevin(nrSteps, save_interval=self.modNr)
-                        xyz += x_iter
-                    else:
-
-                        x_iter = self.integrator.run_modifKinEn_Langevin(nrSteps, dataLM, VLM, v, save_interval=self.modNr)
-                        xyz += x_iter
-                    initialPositions[rep] = xyz[-1]
-
-                 #-----save trajectory from the current Iteration
-                #for n in range(0,nrRep*nrSteps):
-                #    Xit[it* (nrRep*nrSteps) + n]=Xrep[n]
-
-                #------ reshape data ------------------------------
-
-                traj=reshapeData(self.integrator.model, xyz)
-
-                #------ compute CV ------------------------------
-
-                landmarks, V1 = dimension_reduction(traj, self.epsilon, self.numberOfLandmarks, self, self.kT, self.method)
-
-                # change the epsilon if there is not enough of landmarks
-                escape=0
-
-                while escape==0:
-                    if len(np.unique(landmarks)) < 0.8*len(landmarks) and self.epsilon < self.epsilon_Max:
-                        print('Increasing epsilon: epsilon = '+repr(self.epsilon))
-                        self.epsilon =self.epsilon*2
-                        landmarks, V1 = dimension_reduction(traj, self.epsilon, self.numberOfLandmarks, self, self.kT, self.method)
-                    else:
-                        escape=1
-
-                # WARNING: This won't work at the moment because we eliminated Xit
-                #for nL in range(0, self.numberOfLandmarks):
-                #    self.landmarkedStates[it*self.numberOfLandmarks+nL]=Xit[landmarks[nL]]
-
-
-
-                #print len(np.unique(landmarks))
-
-                dataLM=traj[landmarks, :]* self.integrator.model.x_unit
-
-                VLM=V1[landmarks]#*self.integrator.model.x_unit
-
-                #compute piecewise derivatives
-                v=aprx.compute_all_derivatives(traj[landmarks, :], V1[landmarks])#*
-                #v=reshapeDataBack(v, self.integrator.model.velocity_unit)
-                #print v.shape
-
-                ##simulate EFTAD of EFTAD_kinEn
-                #trajEFTAD_full,pEFTAD, z_full=self.std.simulate_eftad(n_stepsEFTAD, dataLM, VLM, v, ComputeForcing=0)
-
-
-                #------- simulate eftad and reset initial positions for the next iteration
-
-                if eftadFlag:
-                    self.integrator.x0=initialPositions[0]
-                    xEftad,vEftad=self.integrator.run_EFTAD_adaptive(nrStepsEftad,  dataLM, VLM, v)
-
-                    initialPositions=[xEftad[-1] for rep in range(0,nrRep)]
-
-                tavEnd=time.time()
-                self.timeAv.addSample(tavEnd-tav0)
-
-                self.trajSave=md.Trajectory(xyz, self.topology)
-
-                print('Saving traj to file')
-                self.trajSave.save(self.savingFolder+'traj_'+repr(it)+'.h5')
-
-######----------------- pure kin en from force ---------------------------------
-
-    def runKinEnForce(self, nrSteps, nrIterations, nrRep):
-
-
-            #reset time
-            self.timeAv.clear()
-
-
-            print('modified kinetic energy (with force) dynamics with '+repr(nrRep)+' replicas')
-
-
-            initialPositions=[self.integrator.x0 for rep in range(0,nrRep)]
-
-            ##############################
-
-            for it in range(0,nrIterations):
-
-                if(it>0):
-                    tav0=time.time()
-
-                if(np.remainder(it, writingEveryNSteps)==0):
-                    print('Iteration '+ repr(it))
-
-                    if(it>0):
-                        t_left=(self.timeAv.getAverage())*(nrIterations-it)
-                        print(time.strftime("Time left %H:%M:%S", time.gmtime(t_left)))
-
-                #------- simulate Langevin
-
-                xyz = list()
-
-                for rep in range(0, nrRep):
-
-                    self.integrator.x0=initialPositions[rep]
-                    xyz += self.integrator.run_modifKinEn_Langevin(nrSteps, save_interval=self.modNr)
-                    initialPositions[rep] = xyz[-1]
-
-                if(it>0):
-                    tavEnd=time.time()
-                    self.timeAv.addSample(tavEnd-tav0)
-
-                self.trajSave=md.Trajectory(xyz, self.topology)
-
-                print('Saving traj to file')
-                self.trajSave.save(self.savingFolder+'traj_'+repr(it)+'.h5')
-
-
-######----------------- modif kin Energy ---------------------------------
-
-    def runModifiedKineticEnergy(self, nrSteps, nrIterations, nrRep):
-
-            #reset time
-            self.timeAv.clear()
-
-            print('replicated modified kinetic energy dynamics with '+repr(nrRep)+' replicas')
-
-            initialPositions=[self.integrator.x0 for rep in range(0,nrRep)]
-
-            ##############################
-
-            for it in range(0,nrIterations):
-
-                if(it>0):
-                    tav0=time.time()
-
-                if(np.remainder(it, writingEveryNSteps)==0):
-                    print('Iteration '+ repr(it))
-                    print('Kinetic temperature is '+repr(self.integrator.kineticTemperature.getAverage()))
-
-                    if(it>0):
-                        t_left=(self.timeAv.getAverage())*(nrIterations-it)
-                        print(time.strftime("Time left %H:%M:%S", time.gmtime(t_left)))
-
-                #------- simulate Langevin
-
-                xyz = list()
-                for rep in range(0, nrRep):
-
-                    self.integrator.x0=initialPositions[rep]
-                    xyz += self.integrator.run_modifKinEn_Langevin(nrSteps, save_interval=self.modNr)
-                    initialPositions[rep] = xyz[-1] * self.model.x_unit
-
-                #for n in range(0,nrRep):
-                #    Xit[it* (nrRep*nrSteps) + n]=Xrep[n]
-
-                if(it>0):
-                    tavEnd=time.time()
-                    self.timeAv.addSample(tavEnd-tav0)
-
-                #tmpselftraj=np.copy(self.sampled_trajectory)
-                #self.sampled_trajectory=np.concatenate((tmpselftraj,np.copy(Xrep[-1].value_in_unit(self.model.x_unit))))
-
-                self.trajSave=md.Trajectory(xyz, self.topology)
-                print('Saving traj to file')
-                self.trajSave.save(self.savingFolder+'traj_'+repr(it)+'.h5')
-
-##------------------------------------------
-    def runInitialCondition(self, nrSteps, nrIterations, nrRep):
-
+    def run_initial_condition(self, nrSteps, nrIterations, nrRep):
+            """
+            Reset initial conditions by maximizing the distance over the collective variable. Implemented for the dimer where we take simply maximal rmsd w.r.t initial condition.
+            """
             #reset time
             self.timeAv.clear()
 
@@ -837,7 +358,11 @@ class Sampler():
 
 
 ##------------------------------------------
-    def runFrontierPoints(self, nrSteps, nrIterations, nrRep):
+    def run_frontierPoints(self, nrSteps, nrIterations, nrRep):
+            """
+            Corner stones algorithm: run Langevin dynamics, compute diffusion maps, find corner points and reset initial conditons
+            and increase temperature for first n steps and then reset temperature to finish the iteration
+            """
 
             #reset time
             self.timeAv.clear()
@@ -1099,38 +624,6 @@ class Sampler():
 
 
 #--------------------- Functions --------------------------------
-
-def reshapeData(model, Xrep):
-            #convert to unitless
-    xyz = np.array([model.positions.value_in_unit(model.x_unit) for model.positions in Xrep ])
-            #print xyz.shape
-    #xyz=Xrep
-
-    traj=np.zeros([xyz.shape[0],xyz.shape[1]*xyz.shape[2]])
-
-    for i in range(0,xyz.shape[0]):
-        ni=0
-        for n in range(0,xyz.shape[1]):
-            for d in range(0,3):
-                traj[i,ni]=xyz[i, n, d]
-                ni=ni+1
-
-    return traj
-
-def reshapeDataBack(traj):
-
-    xyz=np.zeros([traj.shape[0], int(traj.shape[1]/3.0),3])
-
-
-    for i in range(0,xyz.shape[0]):
-        for n in range(0,xyz.shape[1]):
-            for d in range(0,xyz.shape[2]):
-
-                xyz[i,n, d]=traj[i, n*xyz.shape[2]+d]
-
-    #[model.positions.value_in_unit(model.x_unit) for model.positions in Xrep ]
-
-    return xyz #* unitConst#model.x_unit
 
 ###########################################################
 
@@ -1419,36 +912,3 @@ def align_with_mdanalysis(X_FT, smpl):
     #print(X_aligned.shape)
     #print(alignment)
     return X_aligned
-
-# class ParallelRun():
-#
-#     def __init__(self, f, modNr, nrStep):
-#
-#         from mpi4py import MPI
-#
-#         self.comm = MPI.COMM_WORLD
-#         self.rank = self.comm.Get_rank()
-#         self.size = self.comm.Get_size()
-#
-#         self.f=f
-#
-#         self.traj=np.zeros( self.size, nrStep)
-#
-#     def run(self, nrSteps):
-#         for rep in range(0, nrRep):
-#
-#             traj_full,p_full=f
-#             traj_rep=np.copy(traj_full[::modNr,:])
-#
-#
-#
-#             if rep>0:
-#                 tmp=np.copy(traj_it)
-#                 traj_it=np.concatenate((tmp, traj_rep))
-#
-#             else:
-#                 traj_it=traj_rep
-#
-#         return traj_it
-
-###############################
