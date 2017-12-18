@@ -1,8 +1,8 @@
 """
  python  main_run.py arg
- example: pythonw main_run.py --iterations 1000 --replicas 1 --nrsteps 100000 --folderName 'Reference' --algorithm 0
+ example: python main_run.py --iterations 1000 --replicas 5 --nrsteps 10000 --folderName 'Data' --algorithm 6 --diffMapMetric 'rmsd'
 
- python main_run.py --iterations 2 --replicas 2 --nrsteps 1000 --folderName 'test' --algorithm 0
+ python main_run.py --iterations 1000 --replicas 2 --nrsteps 1000 --folderName 'test' --algorithm 0
 """
 
 
@@ -59,22 +59,7 @@ saveToFileName = args.saveToFileName
 algoFlag=args.algoFlag
 diffMapMetric=args.diffMapMetric
 
-"""
-if self.algorithm==0:
-    self.algorithmName='std'
-if self.algorithm==1:
-    self.algorithmName='eftad_fixed_cv'
-if self.algorithm==2:
-    self.algorithmName='initial_condition'
-if self.algorithm==3:
-    self.algorithmName='frontier_points'
-if self.algorithm==4:
-    self.algorithmName='frontier_points_corner_change_temperature'
-if self.algorithm==5:
-    self.algorithmName='frontier_points_corner'
-if self.algorithm==6:
-    self.algorithmName='frontier_points_corner_change_temperature_off'
-"""
+
 
 if(algoFlag=='std' or algoFlag=='0'):
     iAlgo=0
