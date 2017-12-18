@@ -13,6 +13,7 @@ install:
   - source activate test
   - conda list
   - pip install pydiffmap
+  - pip install rmsd
 
 before_script:
   - python -V
