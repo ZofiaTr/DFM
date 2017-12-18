@@ -232,7 +232,7 @@ class Integrator():
         az = np.exp(-self.gammaAlpha * (self.dt))
         bz = np.sqrt(1 - np.exp(-2 * self.gammaAlpha * (self.dt)))
 
-        #theta, diffTheta=aprx.linApproxPsi(x, dataLandmarks, Vlandmarks, deriv_v)
+        #theta, diffTheta=aprx.linApproxPsi(x, dataLandmarks, Vlandmarks, deriv_v, unit = self.model.x_unit)
 
         theta =self.model.x_projection(x)#self.model.positions[:,0]
         diffTheta=self.model.diff_x_projection(x)
@@ -312,7 +312,7 @@ class Integrator():
         bz = np.sqrt(1.0 - np.exp(-2 * self.gammaAlpha * (self.dt)))
 
         # theta is in units of position and difftheta as being the gradient (x1-x2/dx) is unitless
-        theta, diffTheta=aprx.linApproxPsi(x, self.model, dataLandmarks, Vlandmarks, deriv_v)
+        theta, diffTheta=aprx.linApproxPsi(x, self.model, dataLandmarks, Vlandmarks, deriv_v,  unit = self.model.x_unit)
 
         theta=theta*self.model.x_unit
 
@@ -340,7 +340,7 @@ class Integrator():
             x = x + ((0.5*self.dt ) * v)
             z = z + ((0.5*self.dt ) * vz)
 
-            theta, diffTheta=aprx.linApproxPsi(x, self.model, dataLandmarks, Vlandmarks, deriv_v)
+            theta, diffTheta=aprx.linApproxPsi(x, self.model, dataLandmarks, Vlandmarks, deriv_v,unit = self.model.x_unit)
             theta=theta*self.model.x_unit
             #diffTheta=diffTheta.reshape(x.shape)
 
@@ -362,83 +362,7 @@ class Integrator():
 
         return xs, vs
 
-################# the following functions are not finished -  work in progress
-
-    def run_modifKinEn_Langevin(self, n_steps, dataLandmarks=None, Vlandmarks=None, deriv_v=None, save_interval=1):
-            """Simulate n_steps of modified kintic energy Langevin with the kinetic energy perturbed by an adaptively computed CV
-
-            :param n_steps:
-            :param dt:
-            : optional parameters:
-
-                :return:
-            """
-
-            #Number of CV=1
-
-            xyz = list()
-
-            x = self.x0
-            v = self.v0
-
-
-
-            a = np.exp(-self.gamma * (self.dt))
-            b = np.sqrt(1 - np.exp(-2 * self.gamma * (self.dt)))
-
-            nrSubSteps = 5
-            dtInner=self.dt/float(nrSubSteps)
-
-
-            cke=1.0
-
-            f=self.force_fxn(x)
-
-            dKfct = self.diffKineticEnergyFunction
-            #Kfct = self. kineticEnergyFunction
-
-            for step in range(n_steps):
-
-                v = v + ((0.5*self.dt ) * f * self.invmasses)
-                dK = dKfct(v / self.model.velocity_unit) * self.model.velocity_unit
-
-                x = x + (self.dt  * dK)
-
-
-                f=self.force_fxn(x)
-                v = v + ((0.5*self.dt ) * f * self.invmasses)
-
-                #v = (a * v) + b * np.random.randn(*x.shape) * np.sqrt(self.kT / self.masses)
-
-
-                for _ in range(nrSubSteps):
-
-                    dK = dKfct(v / self.model.velocity_unit) * self.model.velocity_unit
-
-                    v = v - 0.5 * self.gamma * dK * dtInner  #+  np.sqrt(2.0 * self.gamma *self.kT* dtInner * self.invmasses) *np.random.randn(*x.shape)
-
-                v = v +  np.sqrt(2.0 * self.gamma *self.kT* dtInner * self.invmasses) *np.random.randn(*x.shape)
-
-                for _ in range(nrSubSteps):
-
-                    dK = dKfct(v / self.model.velocity_unit) * self.model.velocity_unit
-
-                    v = v - 0.5 * self.gamma * dK * dtInner  #+  np.sqrt(2.0 * self.gamma *self.kT* dtInner * self.invmasses) *np.random.randn(*x.shape)
-
-                # Append to trajectory
-                xyz.append(x / self.model.x_unit)
-                # Store kinetic temperature
-                #kinTemp = self.computeKineticTemperatureModif(v, dKfct)
-                kinTemp = self.computeKineticTemperature(v)
-
-                self.kineticTemperature.addSample(kinTemp)
-
-            self.xEnd=x
-            self.vEnd=v
-
-            return xyz
-
-            #################
+#######
 
     def computeKineticEnergy(self, v):
 

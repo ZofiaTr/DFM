@@ -4,11 +4,11 @@ import rmsd
 import model
 import mdtraj as md
 
-from model import dummyModel, dummyTopology
+#from model import dummyModel, dummyTopology
 
 
 
-def linApproxPsi(point, data_landmarks, V_landmarks, v):
+def linApproxPsi(point, data_landmarks, V_landmarks, v, unit = 1.0):
     """
     add description:
 
@@ -33,7 +33,7 @@ def linApproxPsi(point, data_landmarks, V_landmarks, v):
 
 
 
-    xyzPoint=point/dummyModel.x_unit #np.array([point.value_in_unit(modelObj.x_unit)])
+    xyzPoint=point/unit #np.array([point.value_in_unit(modelObj.x_unit)])
 
 
     #print( xyzPoint.shape[0])
@@ -105,7 +105,7 @@ def diff_lin(x1,x2, f1,f2):
         nlk=1
 
     v= dif*(f2-f1)/float(nlk)
-    
+
 
     return v
 

@@ -1,6 +1,6 @@
 """
  python  main_run_mpi.py arg
- example: python main_run.py --algorithm 0 --iterations 1000 --replicas 5 --nrsteps 10000 --folderName 'DataRMSD'
+ example: pythonw main_run.py --iterations 1000 --replicas 1 --nrsteps 100000 --folderName 'Reference' --algorithm 0
 """
 
 
@@ -21,7 +21,7 @@ import model
 
 #create model defined in class model
 
-modelName = 'Dimer'
+modelName = 'Alanine'
 mdl=model.Model(modelName)
 
 print(mdl.x_unit)
@@ -53,53 +53,50 @@ saveToFileName = args.saveToFileName
 #read imput parameters to choose the algorithm
 algoFlag=args.algoFlag
 
+"""
+if self.algorithm==0:
+    self.algorithmName='std'
+if self.algorithm==1:
+    self.algorithmName='eftad_fixed_cv'
+if self.algorithm==2:
+    self.algorithmName='initial_condition'
+if self.algorithm==3:
+    self.algorithmName='frontier_points'
+if self.algorithm==4:
+    self.algorithmName='frontier_points_corner_change_temperature'
+if self.algorithm==5:
+    self.algorithmName='frontier_points_corner'
+if self.algorithm==6:
+    self.algorithmName='frontier_points_corner_change_temperature_off'
+"""
+
 if(algoFlag=='std' or algoFlag=='0'):
     iAlgo=0
     algoName = 'std'
 elif(algoFlag=='eftad_fixed_cv' or algoFlag=='1'):
     iAlgo=1
     algoName = 'eftad_fixed_cv'
-elif(algoFlag=='eftad_diffmap_local' or algoFlag=='2'):
+elif(algoFlag=='initial_condition' or algoFlag=='2'):
     iAlgo=2
-    algoName = 'eftad_diffmap_local'
-elif(algoFlag=='eftad_diffmap_only' or algoFlag=='3'):
-    iAlgo=3
-    algoName = 'eftad_diffmap_only'
-elif(algoFlag=='eftad_diffmap_kinEn' or algoFlag=='4'):
-    iAlgo=4
-    algoName = 'eftad_diffmap_kinEn'
-elif(algoFlag=='modif_kinEn_force' or algoFlag=='5'):
-    iAlgo=5
-elif(algoFlag=='modif_kinEn' or algoFlag=='6'):
-    iAlgo=6
-    algoName = 'modif_kinEn'
-elif(algoFlag=='initial_condition' or algoFlag=='7'):
-    iAlgo=7
     algoName ='initial_condition'
-elif(algoFlag=='frontier_points' or algoFlag=='8'):
-    iAlgo=8
-    algoName = 'frontier_points'
-elif(algoFlag=='frontier_points_change_temperature' or algoFlag=='9'):
-    iAlgo=9
-    algoName = 'frontier_points_change_temperature'
-elif(algoFlag=='frontier_points_corner' or algoFlag=='10'):
-    iAlgo=10
-    algoName = 'frontier_points_corner'
-elif(algoFlag=='corner_temperature_change_off' or algoFlag=='11'):
-    iAlgo=11
-    algoName = 'corner_temperature_change_off'
+elif(algoFlag=='frontier_points_corner_change_temperature' or algoFlag=='3'):
+    iAlgo=3
+    algoName = 'frontier_points_corner_change_temperature'
+elif(algoFlag=='frontier_points_corner_change_temperature_off' or algoFlag=='4'):
+    iAlgo=4
+    algoName = 'frontier_points_corner_change_temperature_off'
 
 else:
     print('Error: wrong algorithm flag. ')
 
 # parameters
-T=100.0 #400
-temperature =  T * unit.kelvin#300 * unit.kelvin
+T=300.0
+temperature =  T * unit.kelvin
 kT = kB * temperature
 
 
 gamma = 1.0 / unit.picosecond
-dt = 2.0 * unit.femtosecond #2.0 * unit.femtosecond#2.0 * unit.femtosecond
+dt = 2.0 * unit.femtosecond
 
 TemperatureTAMDFactor=30.0
 massScale=50.0
@@ -160,7 +157,7 @@ print('Simulation time: '+repr(nrSteps*nrIterations*dt.value_in_unit(unit.femtos
 #
 if (nrEquilSteps>0):
     print('Equilibration: '+repr(nrEquilSteps*dt.value_in_unit(unit.picosecond))+' '+str(unit.picosecond)+'\n ***** \n' )
-    general_sampler.runStd(nrEquilSteps, 1, 1)
+    general_sampler.run_std(nrEquilSteps, 1, 1)
     general_sampler.resetInitialConditions()
 # run the simulation
 print('\n ****\n Starting simulation\n')

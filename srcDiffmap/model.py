@@ -12,11 +12,6 @@ import openmmtools
 
 from openmmtools.constants import kB
 
-#modelName='Alanine'
-#modelName='Lemon'
-#modelName='Dimer'
-
-modelName='Alanine'
 
 class Model():
 
@@ -83,7 +78,7 @@ class Model():
         if(self.modelName == 'Alanine'):
             # adjust periodic box
             maxval = np.max(np.abs(np.vstack(self.positions.value_in_unit(self.positions.unit))))
-            boxsize = 10.0 * maxval
+            boxsize = 30.0 * maxval
             print('Maximal position value in one direction is '+repr(maxval))
             print('PBC box size set to '+repr(boxsize))
             edge = boxsize * self.testsystem.positions.unit
@@ -505,7 +500,3 @@ class Model():
         testsystem.system, testsystem.positions = system, positions
 
         return testsystem
-
-
-dummyModel=Model(modelName)
-dummyTopology=dummyModel.testsystem.topology
