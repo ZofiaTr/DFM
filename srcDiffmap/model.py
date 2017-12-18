@@ -27,7 +27,7 @@ class Model():
             name = self.testsystem
             self.modelname=str(name)
 
-        
+
 
         elif (self.modelName == 'Lemon'):
 
