@@ -277,8 +277,6 @@ class Integrator():
 
         #################
 
-<<<<<<< HEAD
-
 
     def run_EFTAD_adaptive(self, n_steps, dataLandmarks, Vlandmarks, deriv_v):
         """Simulate n_steps of EFTAD with cv adaptive
@@ -414,6 +412,3 @@ class Integrator():
             DkinEn = np.sign(p)*np.abs(p)**(powerKinEn-1.0)/ (self.masses.value_in_unit(self.model.mass_unit) )
 
             return DkinEn
-=======
-
->>>>>>> 6f2c4c5aa4af960d05f951f344efb05661dded2b
