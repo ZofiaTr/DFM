@@ -18,9 +18,12 @@ before_script:
   - python -V
 
 script:
-  - python main_run.py --algorithm="std" --iterations 2 --replicas 2
-  - python main_run.py --algorithm="eftad_fixed_cv" --iterations 2 --replicas 2
-  - python main_run.py --algorithm="frontier_points" --iterations 2 --replicas 2
+  - python main_run.py --iterations 2 --replicas 2 --nrsteps 1000 --folderName 'test_travis' --algorithm 0
+  - python main_run.py --iterations 2 --replicas 2 --nrsteps 1000 --folderName 'test_travis' --algorithm 1
+  - python main_run.py --iterations 2 --replicas 2 --nrsteps 1000 --folderName 'test_travis' --algorithm 2
+  - python main_run.py --iterations 2 --replicas 2 --nrsteps 1000 --folderName 'test_travis' --algorithm 3
+  - python main_run.py --iterations 2 --replicas 2 --nrsteps 1000 --folderName 'test_travis' --algorithm 4
+  - python main_run.py --iterations 2 --replicas 2 --nrsteps 1000 --folderName 'test_travis' --algorithm 4 --diffMapMetric 'rmsd'
 
 env:
   matrix:

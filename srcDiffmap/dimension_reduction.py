@@ -28,7 +28,7 @@ def dominantEigenvectorDiffusionMap(tr, eps, sampler, T, method, nrOfFirstEigenV
         # X_FT =tr.reshape(tr.shape[0],sampler.model.testsystem.positions.shape[0],sampler.model.testsystem.positions.shape[1] )
         # tr = align_with_mdanalysis(X_FT, sampler);
 
-        E = computeEnergy(tr, sampler, modelShape=True)
+        E = computeEnergy(tr, sampler, modelShape=False)
         qTargetDistribution= computeTargetMeasure(E, sampler)
 
         if method=='PCA':
@@ -106,7 +106,14 @@ def dominantEigenvectorDiffusionMap(tr, eps, sampler, T, method, nrOfFirstEigenV
                 indptr = [0]
                 indices = []
                 data = []
-                k = 1000
+
+                # choose k-nearest neighbors
+                nrNeigh = 2000
+                if nrNeigh > tr.shape[0]:
+                    nrNeigh=tr.shape[0]-1
+
+                k = nrNeigh
+                #----
                 epsilon = eps
 
                 for i in range(traj.n_frames):
@@ -161,7 +168,7 @@ def dominantEigenvectorDiffusionMap(tr, eps, sampler, T, method, nrOfFirstEigenV
 
                 epsilon=eps
 
-                tr = tr.reshape(tr.shape[0], tr.shape[1]*tr.shape[2])
+                #tr = tr.reshape(tr.shape[0], tr.shape[1]*tr.shape[2])
 
                 nrNeigh = 2000
                 if nrNeigh > tr.shape[0]:

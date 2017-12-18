@@ -42,13 +42,13 @@ class Sampler():
     """
 
 
-    def __init__(self, model, integrator, algorithm=0, dataFileName='/Data', dataFrontierPointsName = '/FrontierPoints', dataEigenVectorsName='/Eigenvectors', dataEnergyName='/Energies'):
+    def __init__(self, model, integrator, algorithm=0, diffusionMapMetric='euclidean', dataFileName='/Data', dataFrontierPointsName = '/FrontierPoints', dataEigenVectorsName='/Eigenvectors', dataEnergyName='/Energies'):
 
         self.model=model
         self.algorithm=algorithm
         self.integrator=integrator
 
-        self.diffmap_metric = 'euclidean' # dm.myRMSDmetricPrecentered
+        self.diffmap_metric = diffusionMapMetric # dm.myRMSDmetricPrecentered
 
         #set the temperature here - then passed to the integrator
         self.kT=self.integrator.kT

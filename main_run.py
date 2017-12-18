@@ -2,7 +2,7 @@
  python  main_run.py arg
  example: pythonw main_run.py --iterations 1000 --replicas 1 --nrsteps 100000 --folderName 'Reference' --algorithm 0
 
- python main_run.py --iterations 1000 --replicas 1 --nrsteps 100000 --folderName 'Reference' --algorithm 0
+ python main_run.py --iterations 2 --replicas 2 --nrsteps 1000 --folderName 'test' --algorithm 0
 """
 
 
@@ -47,6 +47,9 @@ parser.add_argument('--nrsteps', dest='nrSteps', type=int, default=1000,
 #                    help='0: save data into Data folder; 1: Save data to temporary folder; 2: another temporary folder ')
 parser.add_argument('--folderName', dest='saveToFileName', type=str, default='Data',
                     help='Create folder and save data there')
+parser.add_argument('--diffMapMetric', dest='diffMapMetric', type=str, default='euclidean',
+                    help='Metric for diffusion maps. Choose between rmsd and euclidean.')
+
 
 args = parser.parse_args()
 
@@ -54,6 +57,7 @@ saveToFileName = args.saveToFileName
 
 #read imput parameters to choose the algorithm
 algoFlag=args.algoFlag
+diffMapMetric=args.diffMapMetric
 
 """
 if self.algorithm==0:
@@ -147,7 +151,7 @@ if not os.path.exists(newpath):
 integrator=integrator.Integrator( model=mdl, gamma=gamma, temperature=temperature, temperatureAlpha=temperatureAlpha, dt=dt, massScale=massScale, gammaScale=gammaScale, kappaScale=kappaScale)
 
 
-general_sampler=sampler.Sampler(model=mdl, integrator=integrator, algorithm=iAlgo, dataFileName=dataFileName, dataFrontierPointsName = dataFileNameFrontierPoints, dataEigenVectorsName =dataFileNameEigenVectors, dataEnergyName = dataFileEnergy)
+general_sampler=sampler.Sampler(model=mdl, integrator=integrator, algorithm=iAlgo, diffusionMapMetric=diffMapMetric, dataFileName=dataFileName, dataFrontierPointsName = dataFileNameFrontierPoints, dataEigenVectorsName =dataFileNameEigenVectors, dataEnergyName = dataFileEnergy)
 
 # nrSteps is number of steps for each nrRep , and iterate the algo nrIterations times - total simulation time is nrSteps x nrIterations
 nrSteps=args.nrSteps
