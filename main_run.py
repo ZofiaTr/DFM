@@ -1,6 +1,8 @@
 """
- python  main_run_mpi.py arg
+ python  main_run.py arg
  example: pythonw main_run.py --iterations 1000 --replicas 1 --nrsteps 100000 --folderName 'Reference' --algorithm 0
+
+ python main_run.py --iterations 1000 --replicas 1 --nrsteps 100000 --folderName 'Reference' --algorithm 0
 """
 
 
@@ -96,7 +98,7 @@ kT = kB * temperature
 
 
 gamma = 1.0 / unit.picosecond
-dt = 2.0 * unit.femtosecond
+dt = 0.5 * unit.femtosecond
 
 TemperatureTAMDFactor=30.0
 massScale=50.0

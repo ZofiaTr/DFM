@@ -197,7 +197,7 @@ def dominantEigenvectorDiffusionMap(tr, eps, sampler, T, method, nrOfFirstEigenV
             # kernelDiff=mydmap.local_kernel
 
         else:
-            print('Error in sampler class: dimension_reduction function did not match any method.\n CHoose from: TMDiffmap, PCA, Diffmap')
+            print('Error in sampler class: dimension_reduction function did not match any method.\n Choose from: TMDiffmap, PCA, Diffmap')
 
         return v1, qTargetDistribution, qEstimated, E, kernelDiff
 
