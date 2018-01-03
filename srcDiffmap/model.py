@@ -206,8 +206,6 @@ class Model():
             force.addParticle(1, [])
             system.addForce(force)
 
-
-
         # Create topology.
         topology = app.Topology()
         element = app.Element.getBySymbol('N')

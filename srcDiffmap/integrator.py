@@ -28,6 +28,9 @@ class Integrator():
          self.kT = kB * self.temperature
 
          self.x0=self.model.positions
+
+
+
          self.v0=np.random.randn(*self.x0.shape) * np.sqrt(self.kT / self.masses)
 
          self.xEnd=self.model.positions
@@ -168,8 +171,17 @@ class Integrator():
         self.langevin_integrator.setTemperature(self.temperature)
 
         # Intialize positions and velocities
+
+        #print(self.x0)
+        #if self.initialPosition is not None:
+    #        self.x0=self.initialPosition
+
         self.context.setPositions(self.x0)
         self.context.setVelocities(self.v0)
+
+        # print(self.x0)
+        # while 1 :
+        #     pass
 
         # Store trajectory
         xyz = list()

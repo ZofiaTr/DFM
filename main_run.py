@@ -1,8 +1,10 @@
 """
  python  main_run.py arg
- example: python main_run.py --iterations 1000 --replicas 5 --nrsteps 10000 --folderName 'Data' --algorithm 6 --diffMapMetric 'rmsd'
+ example: python main_run.py --iterations 1000 --replicas 1 --nrsteps 100000 --folderName 'Data' --algorithm 0 --diffMapMetric 'rmsd'
 
- python main_run.py --iterations 1000 --replicas 2 --nrsteps 1000 --folderName 'test' --algorithm 0
+python main_run.py --iterations 1000 --replicas 10 --nrsteps 5000 --folderName 'Data_rmsd' --algorithm 3 --diffMapMetric 'rmsd'
+
+  python main_run.py --iterations 1000 --replicas 1 --nrsteps 100000 --folderName 'Data' --algorithm 0
 """
 
 
@@ -25,6 +27,10 @@ import model
 
 modelName = 'Alanine'
 mdl=model.Model(modelName)
+
+# IC = md.load('alanine_start_state_IC.h5')
+# mdl.positions = IC.xyz * mdl.x_unit
+
 
 print(mdl.x_unit)
 print(mdl.modelname)
@@ -129,18 +135,23 @@ newpath = os.path.join(os.getcwd(),dataFileEnergy)
 if not os.path.exists(newpath):
         os.makedirs(newpath)
 
-
-
-
 # simulation class sampler takes integrator class with chosen parameters as input
 integrator=integrator.Integrator( model=mdl, gamma=gamma, temperature=temperature, temperatureAlpha=temperatureAlpha, dt=dt, massScale=massScale, gammaScale=gammaScale, kappaScale=kappaScale)
 
+IC = md.load('alanine_start_state_IC.h5')
+# remove first dimension - the intial condition has shape (1,nrParticles, spaceDimension) when taken from trajectory
+InitialPosition = np.squeeze(IC.xyz)
+integrator.x0 = InitialPosition * mdl.x_unit
 
 general_sampler=sampler.Sampler(model=mdl, integrator=integrator, algorithm=iAlgo, diffusionMapMetric=diffMapMetric, dataFileName=dataFileName, dataFrontierPointsName = dataFileNameFrontierPoints, dataEigenVectorsName =dataFileNameEigenVectors, dataEnergyName = dataFileEnergy)
 
+#IC = md.load('alanine_start_state_IC.h5')
+#general_sampler.integrator.x0 = IC.xyz * mdl.x_unit# unit.Quantity(IC.xyz, mdl.x_unit)
+
+
 # nrSteps is number of steps for each nrRep , and iterate the algo nrIterations times - total simulation time is nrSteps x nrIterations
 nrSteps=args.nrSteps
-nrEquilSteps = 10000 #10000
+nrEquilSteps = 0 #10000
 nrIterations=args.niterations
 nrRep=args.nreplicas
 
