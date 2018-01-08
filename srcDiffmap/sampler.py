@@ -61,8 +61,11 @@ class Sampler():
         self.method='TMDiffmap'#'TMDiffmap'#'Diffmap'
 
         #diffusion maps constants
-        self.epsilon=0.1 #0.05
-        self.epsilon_Max=self.epsilon* (2.0**4)
+        self.epsilon='bgh'#0.1 #0.05
+        if self.diffmap_metric == 'rmsd':
+            self.epsilon = 0.1
+            print('If the metric is rmsd, epsilon must have numeric value.')
+        #self.epsilon_Max=self.epsilon* (2.0**4)
 
         #linear approximation
         self.numberOfLandmarks=10
@@ -82,6 +85,10 @@ class Sampler():
         self.changeTemperature = 0
         self.corner = 0
 
+        # local or global collective variables
+        # by default : global
+        # if 1, then the diffusion map cv is computed only from trajectory from the last iteration
+        self.local_CV = 0
 
 
         if self.algorithm==0:
@@ -90,16 +97,14 @@ class Sampler():
             self.algorithmName='eftad_fixed_cv'
         if self.algorithm==2:
             self.algorithmName='initial_condition'
-        # if self.algorithm==3:
-        #     self.algorithmName='frontier_points'
         if self.algorithm==3:
             self.algorithmName='frontier_points_corner_change_temperature'
-        # if self.algorithm==4:
-        #     self.algorithmName='frontier_points_corner'
         if self.algorithm==4:
             self.algorithmName='frontier_points_corner_change_temperature_off'
-
-
+        if self.algorithm==5:
+            self.algorithmName='local_frontier_points_corner_change_temperature_off'
+        if self.algorithm==6:
+            self.algorithmName='local_frontier_points_corner_change_temperature'
 
         #print(self.model.testsystem.topology)
         self.topology = md.Topology().from_openmm(self.model.testsystem.topology)
@@ -144,6 +149,20 @@ class Sampler():
         self.run_frontierPoints(nrSteps, nrIterations, nrRep)
 
     def run_frontier_points_corner_change_temperature(self, nrSteps, nrIterations, nrRep):
+        self.changeTemperature = 1
+        self.corner = 1
+        self.run_frontierPoints(nrSteps, nrIterations, nrRep)
+
+    def run_local_frontier_points_corner_change_temperature_off(self, nrSteps, nrIterations, nrRep):
+
+        self.local_CV = 1
+        self.changeTemperature = 0
+        self.corner = 1
+        self.run_frontierPoints(nrSteps, nrIterations, nrRep)
+
+    def run_local_frontier_points_corner_change_temperature(self, nrSteps, nrIterations, nrRep):
+
+        self.local_CV = 1
         self.changeTemperature = 1
         self.corner = 1
         self.run_frontierPoints(nrSteps, nrIterations, nrRep)
@@ -387,7 +406,10 @@ class Sampler():
             else:
                 print('Frontier points algorithm on')
 
-
+            if (self.local_CV == 1):
+                print('Local CV: diffusion map computed from trajectory from the previous iteration.')
+            else:
+                print('Gloval CV: diffusion map computed from trajectory from the whole history.')
 
             #intialisation
             initialPositions=[self.integrator.x0 for rep in range(0,nrRep)]
@@ -420,7 +442,7 @@ class Sampler():
                         self.integrator.temperature = T+200  * self.model.temperature_unit
                         print("Changing temperature to T="+repr(self.integrator.temperature))
 
-                        print('Simulating at higher temperature')
+                        print('Simulating at higher temperature'+repr(self.integrator.temperature))
 
                 #------- simulate Langevin
                     xyz = list()
@@ -449,7 +471,7 @@ class Sampler():
                     self.integrator.temperature = self.kT/ self.model.kB_const
                     print("Changing temperature back to T="+repr(self.integrator.temperature))
 
-                    print('Simulating at target temperature')
+                    print('Simulating at target temperature '+ repr(self.integrator.temperature))
 
                     for rep in range(0, nrRep):
 
@@ -511,9 +533,15 @@ class Sampler():
                 #print(self.trajSave.xyz.shape)
                 #------ reshape data ------------------------------
 
-
-                xyz_history += xyz
-                potentialEnergy_history += potentialEnergyList
+                # assign points that will be used for diffusion maps
+                if (self.local_CV == 1):
+                    #  history is only from the previous iteration
+                    xyz_history = xyz
+                    potentialEnergy_history = potentialEnergyList
+                else:
+                    # accumulate history of all points
+                    xyz_history += xyz
+                    potentialEnergy_history += potentialEnergyList
 
                 xyz_tr = xyz_history
                 trajMD=md.Trajectory(xyz_tr, self.topology)
@@ -539,11 +567,12 @@ class Sampler():
                 #     trajMD=trajMD.superpose(trajMD, 0)
 
                 # reshape trajectories, because dimension reduction takes array steps x nDOF
+                print('Reshaping the trajectory.')
                 traj =  trajMD.xyz.reshape((trajMD.xyz.shape[0], self.trajSave.xyz.shape[1]*self.trajSave.xyz.shape[2]))
 
 
                 #------ compute CV and reset initial conditions------------------------------
-
+                print('Find new initial conditions.')
                 if(self.corner==0):
                     V1, q, qEstimated, potEn, kernelDiff=dimred.dominantEigenvectorDiffusionMap(traj, self.epsilon, self, self.kT, self.method, energy = potentialEnergyShort, metric = self.diffmap_metric)
 

@@ -20,7 +20,7 @@ def dominantEigenvectorDiffusionMap(tr, eps, sampler, T, method, nrOfFirstEigenV
         tr : ndarray of shape n x DOF where n is number of time steps / frames and DOF is number of particles times space dimension
         """
 
-        print("Temperature in dominantEigenvectorDiffusionMap is "+repr(sampler.kT/sampler.model.kB_const))
+        print("Computing diffusion maps. ")
 
         chosenmetric = metric
         print('Chosen metric for diffusionmap is '+str(chosenmetric))
@@ -76,6 +76,7 @@ def dominantEigenvectorDiffusionMap(tr, eps, sampler, T, method, nrOfFirstEigenV
 
         elif method =='TMDiffmap': #target measure diffusion map
 
+            print("Temperature in TMDmap is "+repr(sampler.kT/sampler.model.kB_const))
             # P, qEstimated, kernelDiff = dm.compute_unweighted_P( tr,eps, sampler, qTargetDistribution )
             # lambdas, eigenvectors = sps.linalg.eigs(P, k=(nrOfFirstEigenVectors))#, which='LM' )
             # lambdas = np.real(lambdas)
@@ -212,6 +213,7 @@ def dominantEigenvectorDiffusionMap(tr, eps, sampler, T, method, nrOfFirstEigenV
 
 def computeTargetMeasure(Erecompute, smpl):
 
+    print('Computing the target measure.')
     qTargetDistribution=np.zeros(len(Erecompute))
 
 
@@ -220,11 +222,13 @@ def computeTargetMeasure(Erecompute, smpl):
                 tmp = Erecompute[i]
                 betatimesH_unitless =tmp / smpl.kT.value_in_unit(smpl.model.energy_unit) #* smpl.model.temperature_unit
                 qTargetDistribution[i]=np.exp(-(betatimesH_unitless))
-    print('Done')
+    #print('Done')
 
     return qTargetDistribution#, Erecompute
 
 def computeEnergy(X_reshaped, smpl, modelShape = False):
+
+    print('Computing the energy.')
 
     if modelShape:
         X_FT=X_reshaped

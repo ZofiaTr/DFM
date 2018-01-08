@@ -2,7 +2,7 @@
  python  main_run.py arg
  example: python main_run.py --iterations 1000 --replicas 1 --nrsteps 100000 --folderName 'Data' --algorithm 0 --diffMapMetric 'rmsd'
 
-python main_run.py --iterations 1000 --replicas 10 --nrsteps 5000 --folderName 'Data_rmsd' --algorithm 3 --diffMapMetric 'rmsd'
+pythonw main_run.py --iterations 10 --replicas 5 --nrsteps 10000 --folderName 'Data' --algorithm 3 --diffMapMetric 'euclidean'
 
   python main_run.py --iterations 1000 --replicas 1 --nrsteps 100000 --folderName 'Data' --algorithm 0
 """
@@ -82,9 +82,18 @@ elif(algoFlag=='frontier_points_corner_change_temperature' or algoFlag=='3'):
 elif(algoFlag=='frontier_points_corner_change_temperature_off' or algoFlag=='4'):
     iAlgo=4
     algoName = 'frontier_points_corner_change_temperature_off'
+elif(algoFlag=='local_frontier_points_corner_change_temperature_off' or algoFlag=='5'):
+    iAlgo=5
+    algoName = 'local_frontier_points_corner_change_temperature_off'
+elif(algoFlag=='local_frontier_points_corner_change_temperature' or algoFlag=='6'):
+    iAlgo=6
+    algoName = 'local_frontier_points_corner_change_temperature'
 
 else:
     print('Error: wrong algorithm flag. ')
+
+
+
 
 # parameters
 T=300.0
@@ -138,16 +147,13 @@ if not os.path.exists(newpath):
 # simulation class sampler takes integrator class with chosen parameters as input
 integrator=integrator.Integrator( model=mdl, gamma=gamma, temperature=temperature, temperatureAlpha=temperatureAlpha, dt=dt, massScale=massScale, gammaScale=gammaScale, kappaScale=kappaScale)
 
-IC = md.load('alanine_start_state_IC.h5')
-# remove first dimension - the intial condition has shape (1,nrParticles, spaceDimension) when taken from trajectory
-InitialPosition = np.squeeze(IC.xyz)
-integrator.x0 = InitialPosition * mdl.x_unit
+## load initial condition from file
+# IC = md.load('alanine_start_state_IC.h5')
+# # remove first dimension - the intial condition has shape (1,nrParticles, spaceDimension) when taken from trajectory
+# InitialPosition = np.squeeze(IC.xyz)
+# integrator.x0 = InitialPosition * mdl.x_unit
 
 general_sampler=sampler.Sampler(model=mdl, integrator=integrator, algorithm=iAlgo, diffusionMapMetric=diffMapMetric, dataFileName=dataFileName, dataFrontierPointsName = dataFileNameFrontierPoints, dataEigenVectorsName =dataFileNameEigenVectors, dataEnergyName = dataFileEnergy)
-
-#IC = md.load('alanine_start_state_IC.h5')
-#general_sampler.integrator.x0 = IC.xyz * mdl.x_unit# unit.Quantity(IC.xyz, mdl.x_unit)
-
 
 # nrSteps is number of steps for each nrRep , and iterate the algo nrIterations times - total simulation time is nrSteps x nrIterations
 nrSteps=args.nrSteps
