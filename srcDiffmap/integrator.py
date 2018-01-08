@@ -4,7 +4,6 @@ import model
 import numpy as np
 
 import model
-import linear_approximation as aprx
 import sampler
 from simtk import openmm, unit
 import Averages
@@ -217,7 +216,7 @@ class Integrator():
 
     def run_EFTAD(self, n_steps):
         """Simulate n_steps of EFTAD/TAMD with fixed CV's discretized by BAOAB scheme
-
+        rewrite project function to define the collective variable
         :param n_steps:
         :param dt:
         : optional parameters:
@@ -243,8 +242,6 @@ class Integrator():
 
         az = np.exp(-self.gammaAlpha * (self.dt))
         bz = np.sqrt(1 - np.exp(-2 * self.gammaAlpha * (self.dt)))
-
-        #theta, diffTheta=aprx.linApproxPsi(x, dataLandmarks, Vlandmarks, deriv_v, unit = self.model.x_unit)
 
         theta =self.model.x_projection(x)#self.model.positions[:,0]
         diffTheta=self.model.diff_x_projection(x)
@@ -288,92 +285,6 @@ class Integrator():
         return xs, vs
 
         #################
-
-
-    def run_EFTAD_adaptive(self, n_steps, dataLandmarks, Vlandmarks, deriv_v):
-        """Simulate n_steps of EFTAD with cv adaptive
-
-
-        :param n_steps:
-        :param dt:
-        : optional parameters:
-
-            :return:
-
-        The positions and velocities here x anf v are in the openmm quantity format.
-        """
-
-        #Number of CV=1
-
-        xs = [self.x0]
-        vs = [self.x0]
-
-        x = self.x0
-        v = self.v0
-
-        z = self.z0
-        vz = self.vz0
-        zs = z
-
-
-        a = np.exp(-self.gamma * (self.dt))
-        b = np.sqrt(1 - np.exp(-2 * self.gamma * (self.dt)))
-
-        az = np.exp(-self.gammaAlpha * (self.dt))
-        bz = np.sqrt(1.0 - np.exp(-2 * self.gammaAlpha * (self.dt)))
-
-        # theta is in units of position and difftheta as being the gradient (x1-x2/dx) is unitless
-        theta, diffTheta=aprx.linApproxPsi(x, self.model, dataLandmarks, Vlandmarks, deriv_v,  unit = self.model.x_unit)
-
-        theta=theta*self.model.x_unit
-
-        F2=-self.kappaAlpha*((theta - z)*diffTheta)
-
-
-        f=self.force_fxn(x) +F2
-        fAlpha=self.kappaAlpha*(theta-z)
-
-
-        invmassesAlpha= 1.0/self.massAlpha
-        sqrtKTmAlpha = np.sqrt(self.kTAlpha *invmassesAlpha)
-
-
-        for _ in range(n_steps):
-            v = v + ((0.5*self.dt ) * f / self.masses)
-            vz = vz + ((0.5*self.dt ) * fAlpha / self.massAlpha)
-
-            x = x + ((0.5*self.dt ) * v)
-            z = z + ((0.5*self.dt ) * vz)
-
-            v = (a * v) + b * np.random.randn(*x.shape) * np.sqrt(self.kT / self.masses)
-            vz = (az * vz) + bz * np.random.randn(*z.shape) * sqrtKTmAlpha
-
-            x = x + ((0.5*self.dt ) * v)
-            z = z + ((0.5*self.dt ) * vz)
-
-            theta, diffTheta=aprx.linApproxPsi(x, self.model, dataLandmarks, Vlandmarks, deriv_v,unit = self.model.x_unit)
-            theta=theta*self.model.x_unit
-            #diffTheta=diffTheta.reshape(x.shape)
-
-            F2=-self.kappaAlpha*((theta - z)*diffTheta)
-            f=self.force_fxn(x)+F2
-            fAlpha=self.kappaAlpha*(theta-z)
-
-            v = v + ((0.5*self.dt ) * f / self.masses)
-            vz = vz + ((0.5*self.dt ) * fAlpha / self.massAlpha)
-
-            xs.append(x)
-            vs.append(v)
-
-        self.xEnd=x
-        self.vEnd=v
-        self.zEnd=z
-        self.vzEnd=vz
-        #self.z0=z
-
-        return xs, vs
-
-#######
 
     def computeKineticEnergy(self, v):
 

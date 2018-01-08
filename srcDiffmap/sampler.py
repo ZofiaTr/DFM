@@ -3,29 +3,16 @@
 The main class for Diffusionmap-directed sampling
 Author: Zofia Trstanova
 Comment:
-The standard dynamics is in runStd
-The diffmap dircted sampling is in runDiffmapCV_Eftad_local.
-The rest of the functions is in progress or not working.
 
 """
 
 import numpy as np
-
-#import diffusionmap as dm
-
-#from pydiffmap import diffusion_map as pydm
-
 import integrator
-#import linear_approximation as aprx
 import Averages as av
 import model
 import dimension_reduction as dimred
 
-#import scipy.sparse as sps
-#import scipy.sparse.linalg as spsl
 import scipy.spatial.distance as scidist
-#import rmsd
-
 import time
 import mdtraj as md
 
@@ -38,7 +25,7 @@ saveModNr=10;
 
 class Sampler():
     """
-    Read the comments in function run() to see which algorithms are working and which are under construction.
+    Main class
     """
 
 
@@ -73,7 +60,6 @@ class Sampler():
         self.nrDecorrSteps=1
 
         self.modNr=10
-        self.modEFTAD=10
 
         self.kTraj_LM_save=None
         self.V1_LM_save=None
@@ -116,9 +102,6 @@ class Sampler():
 
         self.saveEigenvectors=1
         self.saveEnergy=1
-
-
-
 
     def resetInitialConditions(self):
             self.integrator.x0=self.integrator.xEnd

@@ -2,8 +2,6 @@ import numpy as np
 import sys
 from  scipy.spatial.distance import pdist
 
-#import my_test_system
-
 from simtk import openmm, unit
 from simtk.openmm import app
 from openmmtools import testsystems

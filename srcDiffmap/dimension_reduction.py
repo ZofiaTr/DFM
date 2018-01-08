@@ -2,7 +2,6 @@ import numpy as np
 from pydiffmap import diffusion_map as pydm
 import scipy.sparse as sps
 import scipy.sparse.linalg as spsl
-#import rmsd
 import mdtraj as md
 
 
