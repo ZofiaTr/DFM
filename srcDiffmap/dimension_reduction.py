@@ -24,8 +24,9 @@ def dominantEigenvectorDiffusionMap(tr, eps, sampler, T, method, nrOfFirstEigenV
         chosenmetric = metric
         print('Chosen metric for diffusionmap is '+str(chosenmetric))
 
-        # X_FT =tr.reshape(tr.shape[0],sampler.model.testsystem.positions.shape[0],sampler.model.testsystem.positions.shape[1] )
-        # tr = align_with_mdanalysis(X_FT, sampler);
+        X_FT =tr.reshape(tr.shape[0],sampler.model.testsystem.positions.shape[0],sampler.model.testsystem.positions.shape[1] )
+        tr = align_with_mdanalysis(X_FT, sampler);
+        tr = tr.reshape(X_FT.shape[0], X_FT.shape[1]*X_FT.shape[2])
 
         E = computeEnergy(tr, sampler, modelShape=False)
         qTargetDistribution= computeTargetMeasure(E, sampler)
@@ -64,14 +65,21 @@ def dominantEigenvectorDiffusionMap(tr, eps, sampler, T, method, nrOfFirstEigenV
             # #v2=X_se[:,2]
             # #V2=X_se[:,1]
 
-            mydmap = pydm.DiffusionMap(alpha = 0.5, n_evecs = 1, epsilon = eps,  k=1000, metric=chosenmetric)#, neighbor_params = {'n_jobs':-4})
+
+            nrNeigh=1000
+
+            if len(tr)< nrNeigh:
+                nrNeigh = len(tr)-1
+
+            
+            mydmap = pydm.DiffusionMap(alpha = 0.5, n_evecs = 1, epsilon = 'bgh',  k=nrNeigh, metric=chosenmetric)#, neighbor_params = {'n_jobs':-4})
             dmap = mydmap.fit_transform(tr)
 
             P = mydmap.P
             labmdas = mydmap.evals
             v1 = mydmap.evecs
-            qEstimated = mytdmap.q
-            kernelDiff=mytdmap.local_kernel
+            qEstimated = mydmap.q
+            kernelDiff=mydmap.local_kernel
 
         elif method =='TMDiffmap': #target measure diffusion map
 

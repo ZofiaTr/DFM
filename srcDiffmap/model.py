@@ -73,11 +73,11 @@ class Model():
             # adjust periodic box
             ## TBD this should be moved inside the integrator class
             maxval = np.max(np.abs(np.vstack(self.positions.value_in_unit(self.positions.unit))))
-            boxsize = 10.0 * maxval
+            self.boxsize = 10.0 * maxval
             print('Maximal position value in one direction is '+repr(maxval))
-            print('PBC box size set to '+repr(boxsize))
-            edge = boxsize * self.testsystem.positions.unit
-            self.testsystem.system.setDefaultPeriodicBoxVectors([edge,0,0], [0,edge,0], [0,0,edge])
+            print('PBC box size set to '+repr(self.boxsize))
+            self.edge = self.boxsize * self.testsystem.positions.unit
+            self.testsystem.system.setDefaultPeriodicBoxVectors([self.edge,0,0], [0,self.edge,0], [0,0,self.edge])
 
         # if(relax == 1):
         #     self.context.minimizeEnergy(tolerance=2.0)
@@ -157,8 +157,9 @@ class Model():
         system = openmm.System()
 
         # adjust periodic box
-        edge = 6 * position_unit
-        system.setDefaultPeriodicBoxVectors([edge,0,0], [0,edge,0], [0,0,edge])
+        self.boxsize = 6.0
+        self.edge = self.boxsize * position_unit
+        system.setDefaultPeriodicBoxVectors([self.edge,0,0], [0,self.edge,0], [0,0,self.edge])
 
         # Add two particles to the system.
         system.addParticle(m1)

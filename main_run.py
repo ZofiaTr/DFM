@@ -2,7 +2,7 @@
  python  main_run.py arg
  example: python main_run.py --iterations 1000 --replicas 1 --nrsteps 100000 --folderName 'Data' --algorithm 0 --diffMapMetric 'rmsd'
 
-pythonw main_run.py --iterations 10 --replicas 5 --nrsteps 10000 --folderName 'Data' --algorithm 3 --diffMapMetric 'euclidean'
+pythonw main_run.py --iterations 100 --replicas 5 --nrsteps 10000 --folderName 'Data' --algorithm 4 --diffMapMetric 'euclidean'
 
   python main_run.py --iterations 1000 --replicas 1 --nrsteps 100000 --folderName 'Data' --algorithm 0
 """
@@ -88,7 +88,13 @@ elif(algoFlag=='local_frontier_points_corner_change_temperature_off' or algoFlag
 elif(algoFlag=='local_frontier_points_corner_change_temperature' or algoFlag=='6'):
     iAlgo=6
     algoName = 'local_frontier_points_corner_change_temperature'
-
+elif(algoFlag=='DiffmapABF' or algoFlag=='7'):
+    iAlgo=7
+    algoName = 'DiffmapABF'
+elif(algoFlag=='local_frontier_points' or algoFlag=='8'):
+    iAlgo=8
+    algoName = 'local_frontier_points'
+    print('Error: ABF not working yet. ')
 else:
     print('Error: wrong algorithm flag. ')
 
@@ -102,7 +108,7 @@ kT = kB * temperature
 
 
 gamma = 1.0 / unit.picosecond
-dt = 0.5 * unit.femtosecond
+dt = 1.0 * unit.femtosecond
 
 TemperatureTAMDFactor=30.0
 massScale=50.0

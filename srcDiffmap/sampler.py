@@ -45,7 +45,7 @@ class Sampler():
         self.dim=3
         self.dimCV=1
 
-        self.method='TMDiffmap'#'TMDiffmap'#'Diffmap'
+        self.method='Diffmap'#'TMDiffmap'#'Diffmap'
 
         #diffusion maps constants
         self.epsilon='bgh'#0.1 #0.05
@@ -74,6 +74,8 @@ class Sampler():
         # local or global collective variables
         # by default : global
         # if 1, then the diffusion map cv is computed only from trajectory from the last iteration
+        # note that for the local algo: vanilla diffusion map should provide good approximation, since the
+        # quasi-stationary distribution is assumed to be unbiased
         self.local_CV = 0
 
 
@@ -91,6 +93,10 @@ class Sampler():
             self.algorithmName='local_frontier_points_corner_change_temperature_off'
         if self.algorithm==6:
             self.algorithmName='local_frontier_points_corner_change_temperature'
+        if self.algorithm==7:
+            self.algorithmName = 'DiffmapABF'
+        if self.algorithm==8:
+            self.algorithmName = 'local_frontier_points'
 
         #print(self.model.testsystem.topology)
         self.topology = md.Topology().from_openmm(self.model.testsystem.topology)
@@ -148,6 +154,13 @@ class Sampler():
         self.local_CV = 1
         self.changeTemperature = 1
         self.corner = 1
+        self.run_frontierPoints(nrSteps, nrIterations, nrRep)
+
+    def run_local_frontier_points(self, nrSteps, nrIterations, nrRep):
+
+        self.local_CV = 1
+        self.changeTemperature = 0
+        self.corner = 0
         self.run_frontierPoints(nrSteps, nrIterations, nrRep)
 
 ######----------------- STD ---------------------------------
@@ -564,6 +577,10 @@ class Sampler():
                     tmp=traj[idxMaxV1].reshape(self.trajSave.xyz[0].shape)
                     frontierPoint = tmp* self.integrator.model.x_unit
 
+                    tmp=traj[idxMaxV1].reshape( self.trajSave.xyz[0].shape)
+                    frontierPoint = tmp
+                    frontierPointSave = tmp
+
                     self.integrator.x0=frontierPoint
                     initialPositions=[frontierPoint for rep in range(0,nrRep)]
 
@@ -581,8 +598,21 @@ class Sampler():
 
                     dist = scidist.cdist(V1[[idx_corner],:], V1)[0]
 
+
                     # find first cornerstone
                     idx_corner = [np.argmax(dist)]
+
+
+
+                    # # # ## take the point with maximal value of the first ev
+                    # idx_corner = np.argmax(np.abs(V1[:,0]))
+                    # dist = scidist.cdist(V1[[idx_corner],:], V1)[0]
+                    #
+                    # idx_corner=[idx_corner]
+                    # #
+                    # #idx_corner = [np.argmax(dist)]
+
+
                     # print('idx_corner ')
                     # print(idx_corner)
                     # iteration to find the other cornerstones
@@ -609,9 +639,154 @@ class Sampler():
 
                     # ** #################################################
 
-                    frontierPointMDTraj=md.Trajectory(frontierPoint, self.topology)
-                    print('Saving frontier points')
-                    frontierPointMDTraj.save(self.savingFolderFrontierPoints+'/frontierPoints_at_iteration_'+repr(it)+'.h5')
+                frontierPointMDTraj=md.Trajectory(frontierPoint, self.topology)
+                print('Saving frontier points')
+                frontierPointMDTraj.save(self.savingFolderFrontierPoints+'/frontierPoints_at_iteration_'+repr(it)+'.h5')
+
+                if self.saveEigenvectors==1:
+                    trajShort=traj.reshape((traj.shape[0],self.trajSave.xyz.shape[1],self.trajSave.xyz.shape[2]))
+                    print('Shape of traj '+repr(traj.shape))
+                    self.trajEVSave=md.Trajectory(trajShort, self.topology)
+                    print('Saving traj used for diffmaps to file')
+                    self.trajEVSave.save(self.savingFolderEigenvectors+'traj_'+repr(it)+'.h5')
+                    print('Saving EV to file')
+                    np.save(self.savingFolderEigenvectors+'V1_'+repr(it), V1)
+
+
+                print('Saving traj to file')
+                self.trajSave.save(self.savingFolder+'traj_'+repr(it)+'.h5')
+
+                if self.saveEnergy==1:
+                    print('Saving energy to file')
+                    np.save(self.savingFolderEnergy+'E_'+repr(it), potentialEnergyList)
+
+
+                if(it>0):
+                    tavEnd=time.time()
+                    self.timeAv.addSample(tavEnd-tav0)
+
+
+######################################################
+
+##------------------------------------------
+    def run_DiffmapABF(self, nrSteps, nrIterations, nrRep):
+            """
+            DiffmapABF algorithm: run Langevin dynamics, compute diffusion maps, and apply biasing force
+            """
+            print('Error: ABF not working yet. ')
+
+            #reset time
+            self.timeAv.clear()
+
+            print('run_DiffmapABF: replicated std dynamics with '+repr(nrRep)+' replicas')
+            self.local_CV = 0
+
+            #intialisation
+            initialPositions=[self.integrator.x0 for rep in range(0,nrRep)]
+            initialVelocities=[self.integrator.v0 for rep in range(0,nrRep)]
+            ##############################
+
+            xyz_history = list()
+            potentialEnergy_history = list()
+
+
+
+            for it in range(0,nrIterations):
+
+                if(it>0):
+                    tav0=time.time()
+
+                if(np.remainder(it, writingEveryNSteps)==0):
+                    print('Iteration '+ repr(it))
+                    print('Kinetic Temperature is '+str(self.integrator.kineticTemperature.getAverage()))
+
+
+                    if(it>0):
+                        t_left=(self.timeAv.getAverage())*(nrIterations-it)
+                        print(time.strftime("Time left %H:%M:%S", time.gmtime(t_left)))
+
+                xyz = list()
+                potentialEnergyList=list()
+
+                #------- simulate Langevin
+                if it >= 0:
+                    print('Running standard simulation')
+                    for rep in range(0, nrRep):
+
+                        # each intial replica has initial condition
+                        self.integrator.x0=initialPositions[rep]
+                        self.integrator.v0=initialVelocities[rep]
+
+                        xyz_iter, potEnergy = self.integrator.run_langevin(nrSteps, save_interval=self.modNr)
+                        xyz += xyz_iter
+                        if self.saveEnergy==1:
+                            potentialEnergyList +=potEnergy
+                        # #only for replicas
+                        initialPositions[rep] = self.integrator.xEnd
+                        initialVelocities[rep] = self.integrator.vEnd
+                #else:
+                if it>0:
+                #------- simulate ABF
+                    print('Running ABF')
+                    for rep in range(0, nrRep):
+
+                        # each intial replica has initial condition
+                        self.integrator.x0=initialPositions[rep]
+                        self.integrator.v0=initialVelocities[rep]
+
+                        xyz_iter, potEnergy = self.integrator.run_langevin_ABF(nrSteps, self.X, self.V, save_interval=self.modNr)
+                        xyz += xyz_iter
+                        if self.saveEnergy==1:
+                            potentialEnergyList +=potEnergy
+                        # #only for replicas
+                        initialPositions[rep] = self.integrator.xEnd
+                        initialVelocities[rep] = self.integrator.vEnd
+
+
+                # creat md traj object
+                self.trajSave=md.Trajectory(xyz, self.topology)
+
+                # align frames using mdtraj
+                self.trajSave = self.trajSave.center_coordinates()
+                self.trajSave=self.trajSave.superpose(self.trajSave, 0)
+                #self.trajSave = self.trajSave.center_coordinates()
+
+                # assign points that will be used for diffusion maps
+                if (self.local_CV == 1):
+                    #  history is only from the previous iteration
+                    xyz_history = xyz
+                    potentialEnergy_history = potentialEnergyList
+                else:
+                    # accumulate history of all points
+                    xyz_history += xyz
+                    potentialEnergy_history += potentialEnergyList
+
+                xyz_tr = xyz_history
+                trajMD=md.Trajectory(xyz_tr, self.topology)
+
+                if self.saveEnergy ==1:
+                    potentialEnergyShort=potentialEnergy_history
+                else:
+                    potentialEnergyShort=None
+
+                print('Current shape of traj is '+repr(trajMD.xyz.shape))
+                while(len(trajMD)>maxDataLength):
+                    trajMD=trajMD[::2]
+                if self.saveEnergy ==1:
+                    while(len(potentialEnergyShort)>maxDataLength):
+                        potentialEnergyShort = potentialEnergyShort[::2]
+
+                print('Sparsed shape of traj is '+repr(trajMD.xyz.shape))
+
+                # reshape trajectories, because dimension reduction takes array steps x nDOF
+                print('Reshaping the trajectory.')
+                traj =  trajMD.xyz.reshape((trajMD.xyz.shape[0], self.trajSave.xyz.shape[1]*self.trajSave.xyz.shape[2]))
+
+
+                V1, q, qEstimated, potEn, kernelDiff=dimred.dominantEigenvectorDiffusionMap(traj, self.epsilon, self, self.kT, self.method, energy = potentialEnergyShort, metric = self.diffmap_metric)
+
+                self.X = traj
+                self.V = V1
 
                 if self.saveEigenvectors==1:
                     trajShort=traj.reshape((traj.shape[0],self.trajSave.xyz.shape[1],self.trajSave.xyz.shape[2]))

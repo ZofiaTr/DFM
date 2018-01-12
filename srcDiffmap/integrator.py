@@ -10,6 +10,9 @@ import Averages
 
 import openmmtools
 
+from sklearn.neighbors import NearestNeighbors
+import helpers
+
 
 class Integrator():
 
@@ -286,6 +289,100 @@ class Integrator():
 
         #################
 
+    def run_langevin_ABF(self, n_steps, X, V, save_interval=1):
+        """Simulate n_steps of Langevin dynamics with adaptive force biasing using Python implementation of BAOAB
+
+        Parameters
+        ----------
+        n_steps : int
+            The number of MD steps to run
+        X : trajectory used to compute diffusion map
+        V : diffusion coordinate
+        save_interval : int, optional, default=1
+            The interval at which steps are saved
+
+        Returns
+        -------
+        xyz : list of (natoms,3) unitless positions
+            xyz[n] is the nth frame from the trajectory in units of self.model.x_units,
+            saved with interval save_interval
+
+        TODO
+        ----
+        * Handle box_vectors so that we can eventually run periodic systems
+
+        """
+        if n_steps % save_interval != 0:
+            raise Exception("n_steps (%d) should be an integral multiple of save_interval (%d)" % (n_steps, save_interval))
+
+        # Store trajectory
+        xyz = list()
+        potEnergy = list()
+
+        x = self.x0
+        x = self.periodicBoundaryCondition(x);
+
+        zeroV = 0.0 * x[0,:]
+        if (self.model.fixOneParticle):
+            x[0,:]= zeroV
+
+        #print(x)
+
+        self.kT = kB * self.temperature
+
+        v = self.v0
+
+        a = np.exp(-self.gamma * (self.dt))
+        b = np.sqrt(1 - np.exp(-2 * self.gamma * (self.dt)))
+
+        f = self.force_fxn(x)
+
+        forceunit = self.model.force_unit
+
+
+        f -= unit.Quantity(compute_gradient_of_diffusionmap_coordinate(x.value_in_unit(self.model.x_unit), X, V),forceunit)
+
+        for step in range(n_steps):
+            v = v + ((0.5*self.dt ) * f/ self.masses)
+            x = x + ((0.5*self.dt ) * v)
+
+            x = self.periodicBoundaryCondition(x);
+
+            if (self.model.fixOneParticle):
+                x[0,:]= zeroV
+
+
+            v = (a * v) + b * np.random.randn(*x.shape) * np.sqrt(self.kT / self.masses)
+
+            x = x + ((0.5*self.dt ) * v)
+            x = self.periodicBoundaryCondition(x);
+
+            if (self.model.fixOneParticle):
+                x[0,:]= zeroV
+
+            f=self.force_fxn(x)
+            f -= unit.Quantity(compute_gradient_of_diffusionmap_coordinate(x.value_in_unit(self.model.x_unit), X, V),forceunit)
+
+            v = v + ((0.5*self.dt ) * f / self.masses)
+
+            if (self.model.fixOneParticle):
+                x[0,:]= zeroV
+
+
+            if (step+1) % save_interval == 0:
+                xyz.append(x / self.model.x_unit)
+                kinTemp = self.computeKineticTemperature(v)
+                self.kineticTemperature.addSample(kinTemp)
+                potEnergy.append(self.model.energy(x)/self.model.energy_unit)
+
+            #print self.kineticTemperature.getAverage()
+
+        self.xEnd=x
+        self.vEnd=v
+
+        return xyz, potEnergy
+
+
     def computeKineticEnergy(self, v):
 
         p =  self.masses* v
@@ -335,3 +432,70 @@ class Integrator():
             DkinEn = np.sign(p)*np.abs(p)**(powerKinEn-1.0)/ (self.masses.value_in_unit(self.model.mass_unit) )
 
             return DkinEn
+
+    def periodicBoundaryCondition(self, x):
+
+
+        xt = x.value_in_unit(self.model.x_unit)
+        nrPart = xt.shape[0]
+        dim = xt.shape[1]
+
+        for n in range(nrPart):
+            for d in range(dim):
+                if xt[n,d] < self.model.boxsize:
+                    xt[n,d] = xt[n,d] + self.model.boxsize
+                if xt[n,d] > self.model.boxsize:
+                    xt[n,d] = xt[n,d] - self.model.boxsize
+
+        x = unit.Quantity(xt, self.model.x_unit)
+
+        return x
+
+##############################################################
+
+def compute_gradient_of_diffusionmap_coordinate(x, X, V):
+    """
+    Compute an approximation of the gradient of diffusionmap at point x using the finite differences of the nearest neighbors
+
+    Parameters:
+    x : point where the grad should be evalueated at, unitless,
+        ndarray size (number of particles, dimension)
+    X : set of points from which V was computed, unitless
+        ndarray size (number of points, number of particles * dimension)
+    V : diffusionmap coordinate, unitless
+        ndarray size (number of points)
+    """
+
+    fe, bin_vals = helpers.compute_free_energy(V,   weights=None, nrbins=5, kBT=1)
+
+    origshape0 = x.shape[0]
+    origshape1 = x.shape[1]
+
+    x = x.reshape(x.shape[0]*x.shape[1])
+    xset = np.zeros((X.shape[0]+1, X.shape[1]))
+    xset[0,:] =x
+    xset[1:,:] = X
+
+    fe_X = np.zeros(X.shape[0])
+    idx = np.where(np.abs(np.exp(-bin_vals)-V)<0.001)
+    print(idx)
+    while(1):
+        pass
+    #fe_X =
+
+    neigh = NearestNeighbors(n_neighbors=3,metric='euclidean')
+    neigh.fit(xset)
+
+    dist, indices = neigh.kneighbors(xset)
+    indices = indices[0]-1
+
+    #print(indices)
+
+
+
+    Xresh = X.reshape(X.shape[0], origshape0, origshape1)
+    f = (fe[indices[1]] - fe[indices[0]]) * np.ones((origshape0,origshape1))/(Xresh[indices[1],:,:] - Xresh[indices[0],:,:])
+
+
+    #f = f.reshape(origshape0, origshape1)
+    return f
