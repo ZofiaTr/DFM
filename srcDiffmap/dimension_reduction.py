@@ -11,13 +11,22 @@ import mdtraj as md
 ###########################################################
 
 
-def dominantEigenvectorDiffusionMap(tr, eps, sampler, T, method, nrOfFirstEigenVectors=2, numberOfNeighborsPotential=1, energy = None,  metric='euclidean'):
+def dominantEigenvectorDiffusionMap(tr, epsilon, sampler, T, method, nrOfFirstEigenVectors=2, numberOfNeighborsPotential=1, energy = None,  metric='euclidean'):
         """
         Dimension reduction - compute diffusion map from the trajectory
         Parameters
         -------------
         tr : ndarray of shape n x DOF where n is number of time steps / frames and DOF is number of particles times space dimension
+        nrOfFirstEigenVectors : number of first eigenvectors, without the first one. Carefull, pydiffmap takes nrOfFirstEigenVectors and resurns matrix with nrOfFirstEigenVectors+1 columns
+
+        returns
+        ------------
+        v1 : ndarray of shape (len(tr), nrOfFirstEigenVectors), eigenvectors from diffusion maps
         """
+
+        nrNeigh=5000
+        if len(tr)< nrNeigh:
+            nrNeigh = len(tr)-1
 
         print("Computing diffusion maps. ")
 
@@ -29,85 +38,52 @@ def dominantEigenvectorDiffusionMap(tr, eps, sampler, T, method, nrOfFirstEigenV
         tr = tr.reshape(X_FT.shape[0], X_FT.shape[1]*X_FT.shape[2])
 
         E = computeEnergy(tr, sampler, modelShape=False)
-        qTargetDistribution= computeTargetMeasure(E, sampler)
 
-        if method=='PCA':
-
-            X_pca = decomposition.TruncatedSVD(n_components=1).fit_transform(tr- np.mean(tr,axis=0))
-            v1=X_pca[:,0]
-
-            #qEstimated = qTargetDistribution
-            #kernelDiff=[]
-
-            if(nrOfFirstEigenVectors>2):
-                print('For PCA, nrOfFirstEigenVectors must be 1')
-
-        elif method == 'Diffmap':
-
-            # if isinstance(tr, md.Trajectory):
-            #     kernelDiff=dm.compute_kernel_mdtraj(tr, eps)
-            # else:
-            #
-            #     kernelDiff=dm.compute_kernel(tr, eps)
-            #
-            # P=dm.compute_P(kernelDiff, tr)
-            # qEstimated = kernelDiff.sum(axis=1)
-            #
-            # #print(eps)
-            # #X_se = manifold.spectral_embedding(P, n_components = 1, eigen_solver = 'arpack')
-            # #V1=X_se[:,0]
-            #
-            # lambdas, V = sps.linalg.eigsh(P, k=(nrOfFirstEigenVectors))#, which='LM' )
-            # ix = lambdas.argsort()[::-1]
-            # X_se= V[:,ix]
-            #
-            # v1=X_se[:,1:]
-            # #v2=X_se[:,2]
-            # #V2=X_se[:,1]
+        qTargetDistribution=[]
+        if method == 'TMDiffmap':
+            qTargetDistribution= computeTargetMeasure(E, sampler)
 
 
-            nrNeigh=1000
 
-            if len(tr)< nrNeigh:
-                nrNeigh = len(tr)-1
+        # if method=='PCA':
+        #
+        #     X_pca = decomposition.TruncatedSVD(n_components=1).fit_transform(tr- np.mean(tr,axis=0))
+        #     v1=X_pca[:,0]
+        #
+        #     print('PCA not compatible ')
+        #
+        #     #qEstimated = qTargetDistribution
+        #     #kernelDiff=[]
+        #
+        #     if(nrOfFirstEigenVectors>2):
+        #         print('For PCA, nrOfFirstEigenVectors must be 1')
 
-            
-            mydmap = pydm.DiffusionMap(alpha = 0.5, n_evecs = 1, epsilon = 'bgh',  k=nrNeigh, metric=chosenmetric)#, neighbor_params = {'n_jobs':-4})
+        if method == 'Diffmap':
+
+            if chosenmetric == 'rmsd':
+                print('Vanilla diffusion map needs to be adjusted for an explicit metric option. TBD.')
+
+            mydmap = pydm.DiffusionMap(alpha = 0.5, n_evecs = nrOfFirstEigenVectors, epsilon = epsilon,  k=nrNeigh, metric=chosenmetric)#, neighbor_params = {'n_jobs':-4})
             dmap = mydmap.fit_transform(tr)
 
             P = mydmap.P
-            labmdas = mydmap.evals
+            lambdas = mydmap.evals
+
             v1 = mydmap.evecs
             qEstimated = mydmap.q
             kernelDiff=mydmap.local_kernel
 
+
+
         elif method =='TMDiffmap': #target measure diffusion map
 
             print("Temperature in TMDmap is "+repr(sampler.kT/sampler.model.kB_const))
-            # P, qEstimated, kernelDiff = dm.compute_unweighted_P( tr,eps, sampler, qTargetDistribution )
-            # lambdas, eigenvectors = sps.linalg.eigs(P, k=(nrOfFirstEigenVectors))#, which='LM' )
-            # lambdas = np.real(lambdas)
-            #
-            # ix = lambdas.argsort()[::-1]
-            # X_se= eigenvectors[:,ix]
-            # lambdas = lambdas[ix]
-            #
-            #
-            # v1=np.real(X_se[:,1:])
-            # # scale eigenvectors with eigenvalues
-            # v1 = np.dot(v1,np.diag(lambdas[1:]))
-
-
-            # traj = md.Trajectory(X_FT, mdl.testsystem.topology)
-            # distances = np.empty((traj.n_frames, traj.n_frames))
-            # for i in range(traj.n_frames):
-            #     distances[i] = md.rmsd(traj, traj, i)
-            # print(distances.shape)
-
-
 
             ##########
             if chosenmetric=='rmsd':
+
+                print('Epsilon cant be automatic if metric is rmsd. Setting epsilon = 0.1.')
+                epsilon = 0.1
                 trxyz=tr.reshape(tr.shape[0], sampler.model.testsystem.positions.shape[0],sampler.model.testsystem.positions.shape[1])
                 traj = md.Trajectory(trxyz, sampler.model.testsystem.topology)
 
@@ -116,13 +92,8 @@ def dominantEigenvectorDiffusionMap(tr, eps, sampler, T, method, nrOfFirstEigenV
                 data = []
 
                 # choose k-nearest neighbors
-                nrNeigh = 2000
-                if nrNeigh > tr.shape[0]:
-                    nrNeigh=tr.shape[0]-1
-
                 k = nrNeigh
                 #----
-                epsilon = eps
 
                 for i in range(traj.n_frames):
                     # compute distances to frame i
@@ -158,31 +129,22 @@ def dominantEigenvectorDiffusionMap(tr, eps, sampler, T, method, nrOfFirstEigenV
                 Dalpha = sps.spdiags(np.power(row_sum, -1), 0, n, n)
                 P = Dalpha * kernel_matrix
 
-                n_evecs = 2
-
-                evals, evecs = spsl.eigs(P, k=(n_evecs+1), which='LM')
+                evals, evecs = spsl.eigs(P, k=(nrOfFirstEigenVectors+1), which='LM')
                 ix = evals.argsort()[::-1][1:]
                 evals = np.real(evals[ix])
                 evecs = np.real(evecs[:, ix])
                 dmap = np.dot(evecs, np.diag(evals))
 
 
-                labmdas = evals
+                lambdas = evals
                 v1 = evecs
                 qEstimated = q
                 kernelDiff=local_kernel
 
             elif chosenmetric=='euclidean':
 
-                epsilon=eps
 
-                #tr = tr.reshape(tr.shape[0], tr.shape[1]*tr.shape[2])
-
-                nrNeigh = 2000
-                if nrNeigh > tr.shape[0]:
-                    nrNeigh=tr.shape[0]-1
-
-                mydmap = pydm.DiffusionMap(alpha = 1, n_evecs = 1, epsilon = epsilon,  k=nrNeigh, metric='euclidean')#, neighbor_params = {'n_jobs':-4})
+                mydmap = pydm.DiffusionMap(alpha = 1, n_evecs = nrOfFirstEigenVectors, epsilon = epsilon,  k=nrNeigh, metric='euclidean')#, neighbor_params = {'n_jobs':-4})
                 dmap = mydmap.fit_transform(tr, weights = qTargetDistribution)
 
                 P = mydmap.P
@@ -196,25 +158,15 @@ def dominantEigenvectorDiffusionMap(tr, eps, sampler, T, method, nrOfFirstEigenV
 
                 qEstimated = mydmap.q
                 kernelDiff=mydmap.local_kernel
+
             else:
                 print('In tmdmap- metric not defined correctly: choose rmsd or euclidean.')
-
-
-            ##########
-
-            # mydmap = pydm.DiffusionMap(alpha = 1, n_evecs = 1, epsilon = eps,  k=1000, metric=chosenmetric)#, neighbor_params = {'n_jobs':-4})
-            # dmap = mydmap.fit_transform(tr, weights = qTargetDistribution)
-            #
-            # P = mydmap.P
-            # labmdas = mydmap.evals
-            # v1 = mydmap.evecs
-            # qEstimated = mydmap.q
-            # kernelDiff=mydmap.local_kernel
 
         else:
             print('Error in sampler class: dimension_reduction function did not match any method.\n Choose from: TMDiffmap, PCA, Diffmap')
 
-        return v1, qTargetDistribution, qEstimated, E, kernelDiff
+
+        return v1, qTargetDistribution, qEstimated, E, kernelDiff, lambdas
 
 
 

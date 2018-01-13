@@ -29,7 +29,7 @@ class Sampler():
     """
 
 
-    def __init__(self, model, integrator, algorithm=0, diffusionMapMetric='euclidean', dataFileName='/Data', dataFrontierPointsName = '/FrontierPoints', dataEigenVectorsName='/Eigenvectors', dataEnergyName='/Energies'):
+    def __init__(self, model, integrator, algorithm=0, diffusionMapMetric='euclidean', dataFileName='/Data', dataFrontierPointsName = '/FrontierPoints', dataEigenVectorsName='/Eigenvectors', dataEnergyName='/Energies', diffusionMap='Diffmap'):
 
         self.model=model
         self.algorithm=algorithm
@@ -40,12 +40,14 @@ class Sampler():
         #set the temperature here - then passed to the integrator
         self.kT=self.integrator.kT
 
+        self.maxDataLength=maxDataLength
+
         self.timeAv=av.Average(0.0)
 
         self.dim=3
         self.dimCV=1
 
-        self.method='Diffmap'#'TMDiffmap'#'Diffmap'
+        self.method=diffusionMap #'TMDiffmap' or 'Diffmap'
 
         #diffusion maps constants
         self.epsilon='bgh'#0.1 #0.05
@@ -421,7 +423,9 @@ class Sampler():
                     tav0=time.time()
 
                 if(np.remainder(it, writingEveryNSteps)==0):
-                    print('Iteration '+ repr(it))
+                    print('*******************************')
+                    print('********Iteration '+ repr(it)+' *****')
+                    print('*******************************')
                     print('Kinetic Temperature is '+str(self.integrator.kineticTemperature.getAverage()))
 
 
@@ -491,8 +495,6 @@ class Sampler():
 
                     for rep in range(0, nrRep):
 
-                        # TODO: Also track initial and final velocities
-
                         # each intial replica has initial condition
                         self.integrator.x0=initialPositions[rep]
                         self.integrator.v0=initialVelocities[rep]
@@ -547,30 +549,78 @@ class Sampler():
                 else:
                     potentialEnergyShort=None
 
-                print('Current shape of traj is '+repr(trajMD.xyz.shape))
-                while(len(trajMD)>maxDataLength):
-                    trajMD=trajMD[::2]
-                if self.saveEnergy ==1:
-                    while(len(potentialEnergyShort)>maxDataLength):
-                        potentialEnergyShort = potentialEnergyShort[::2]
+                # stride the trajctory and check the convergence of eigenvalues
+                # if it isnt sufficient, stride less
 
-                print('Sparsed shape of traj is '+repr(trajMD.xyz.shape))
+                maxNumberOfStrideAttempts=3
+                check_convergence_eigenvalues=1
+                nrOfStrideAttempt=0
+                errorToleranceEigenvalues = 0.001
 
-                # if self.saveEnergy ==1:
-                #     assert( len(potentialEnergyShort) == len(trajMD)), 'energy length does not match the trajectory length'
-                # if self.diffmap_metric == 'euclidean':
-                #     trajMD = trajMD.center_coordinates()
-                #     trajMD=trajMD.superpose(trajMD, 0)
+                errEW= 1
 
-                # reshape trajectories, because dimension reduction takes array steps x nDOF
-                print('Reshaping the trajectory.')
-                traj =  trajMD.xyz.reshape((trajMD.xyz.shape[0], self.trajSave.xyz.shape[1]*self.trajSave.xyz.shape[2]))
+                maxDataLengthLoc=self.maxDataLength
+
+                while (errEW > errorToleranceEigenvalues and nrOfStrideAttempt<maxNumberOfStrideAttempts):
+                        nrOfStrideAttempt += 1
+
+                        print('*******************************')
+                        print('Stride iteration '+repr(nrOfStrideAttempt))
+
+                        if nrOfStrideAttempt>1:
+                            maxDataLengthLoc = maxDataLengthLoc+1000
+
+                        print('Maximal local data lenght '+repr(maxDataLengthLoc))
+
+                        print('Current shape of traj is '+repr(trajMD.xyz.shape))
+                        while(len(trajMD)>maxDataLengthLoc):
+                            trajMD=trajMD[::2]
+                        if self.saveEnergy ==1:
+                            while(len(potentialEnergyShort)>maxDataLengthLoc):
+                                potentialEnergyShort = potentialEnergyShort[::2]
+
+                        print('Sparsed shape of traj is '+repr(trajMD.xyz.shape))
+
+                        # if self.saveEnergy ==1:
+                        #     assert( len(potentialEnergyShort) == len(trajMD)), 'energy length does not match the trajectory length'
+                        # if self.diffmap_metric == 'euclidean':
+                        #     trajMD = trajMD.center_coordinates()
+                        #     trajMD=trajMD.superpose(trajMD, 0)
+
+                        # reshape trajectories, because dimension reduction takes array steps x nDOF
+                        print('Reshaping the trajectory.')
+                        traj =  trajMD.xyz.reshape((trajMD.xyz.shape[0], self.trajSave.xyz.shape[1]*self.trajSave.xyz.shape[2]))
 
 
-                #------ compute CV and reset initial conditions------------------------------
-                print('Find new initial conditions.')
+                        #------ compute CV and reset initial conditions------------------------------
+                        print('Find new initial conditions.')
+
+                        # nrFEV: V1 will matrix with first nrFEV eigenvectors
+
+
+                        if(self.corner==0):
+                            nrFEV = 1
+                        else:
+                            nrFEV = 2
+
+                        dominantEV, q, qEstimated, potEn, kernelDiff, eigenvalues=dimred.dominantEigenvectorDiffusionMap(traj, self.epsilon, self, self.kT, self.method, nrOfFirstEigenVectors=nrFEV+1, energy = potentialEnergyShort,  metric=self.diffmap_metric)
+                        # skip the zeroth eigenvector
+                        V1 = dominantEV[:,1:]
+
+                        lastTrajSteps = 10
+                        if lastTrajSteps>= traj.shape[0]:
+                            lastTrajSteps = int(0.1*traj.shape[0])
+
+                        if check_convergence_eigenvalues:
+
+                            V1_short, q_short, qEstimated_short, potEn_short, kernelDiff_short, eigenvalues_short=dimred.dominantEigenvectorDiffusionMap(traj[:-lastTrajSteps], self.epsilon, self, self.kT, self.method, nrOfFirstEigenVectors=nrFEV+1, energy = potentialEnergyShort,  metric=self.diffmap_metric)
+                            errEW = np.abs(eigenvalues[0]-eigenvalues_short[0])
+                            print('Error of the eigenvalues in length n and n-100 is '+repr(errEW))
+                            print('error EW is '+repr(errEW))
+                            print('tolerance is '+repr(errorToleranceEigenvalues))
+
+
                 if(self.corner==0):
-                    V1, q, qEstimated, potEn, kernelDiff=dimred.dominantEigenvectorDiffusionMap(traj, self.epsilon, self, self.kT, self.method, energy = potentialEnergyShort, metric = self.diffmap_metric)
 
                     idxMaxV1 = np.argmax(np.abs(V1))
 
@@ -585,12 +635,6 @@ class Sampler():
                     initialPositions=[frontierPoint for rep in range(0,nrRep)]
 
                 else:
-
-                    nrFEV = 2
-                    # V1 is matrix with first nrFEV eigenvectors
-                    V1, q, qEstimated, potEn, kernelDiff=dimred.dominantEigenvectorDiffusionMap(traj, self.epsilon, self, self.kT, self.method, nrOfFirstEigenVectors=nrFEV+1, energy = potentialEnergyShort,  metric=self.diffmap_metric)
-
-
                     ### replace this part till **
                     # select a random point and compute distances to it
                     m = np.shape(V1)[0]

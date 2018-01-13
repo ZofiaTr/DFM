@@ -43,23 +43,26 @@ import argparse
 parser = argparse.ArgumentParser(description='Diffusion map accelerated sampling.')
 parser.add_argument('--algorithm', dest='algoFlag', type=str, default='0',
                     help='algorithm name or number to use (default: 0)')
-parser.add_argument('--iterations', dest='niterations', type=int, default=10000,
-                    help='number of iterations to run (default: 10000)')
-parser.add_argument('--replicas', dest='nreplicas', type=int, default=10,
-                    help='number of replicas to use per iteration (default: 10)')
+parser.add_argument('--iterations', dest='niterations', type=int, default=2,
+                    help='number of iterations to run (default: 2)')
+parser.add_argument('--replicas', dest='nreplicas', type=int, default=2,
+                    help='number of replicas to use per iteration (default: 2)')
 parser.add_argument('--nrsteps', dest='nrSteps', type=int, default=1000,
-                    help='number of replicas to use per iteration (default: 10)')
+                    help='number of replicas to use per iteration (default: 1000)')
 #parser.add_argument('--temporaryFolder', dest='temporaryFile', type=int, default=0,
 #                    help='0: save data into Data folder; 1: Save data to temporary folder; 2: another temporary folder ')
 parser.add_argument('--folderName', dest='saveToFileName', type=str, default='Data',
                     help='Create folder and save data there')
 parser.add_argument('--diffMapMetric', dest='diffMapMetric', type=str, default='euclidean',
                     help='Metric for diffusion maps. Choose between rmsd and euclidean.')
+parser.add_argument('--diffusionMap', dest='diffusionMap', type=str, default='Diffmap',
+                    help='Diffusion map: choose Diffmap for vanilla or TMDiffmap for target measure diffusion map.')
 
 
 args = parser.parse_args()
 
 saveToFileName = args.saveToFileName
+diffusionMap = args.diffusionMap
 
 #read imput parameters to choose the algorithm
 algoFlag=args.algoFlag
@@ -159,7 +162,7 @@ integrator=integrator.Integrator( model=mdl, gamma=gamma, temperature=temperatur
 # InitialPosition = np.squeeze(IC.xyz)
 # integrator.x0 = InitialPosition * mdl.x_unit
 
-general_sampler=sampler.Sampler(model=mdl, integrator=integrator, algorithm=iAlgo, diffusionMapMetric=diffMapMetric, dataFileName=dataFileName, dataFrontierPointsName = dataFileNameFrontierPoints, dataEigenVectorsName =dataFileNameEigenVectors, dataEnergyName = dataFileEnergy)
+general_sampler=sampler.Sampler(model=mdl, integrator=integrator, algorithm=iAlgo, diffusionMapMetric=diffMapMetric, dataFileName=dataFileName, dataFrontierPointsName = dataFileNameFrontierPoints, dataEigenVectorsName =dataFileNameEigenVectors, dataEnergyName = dataFileEnergy, diffusionMap=diffusionMap)
 
 # nrSteps is number of steps for each nrRep , and iterate the algo nrIterations times - total simulation time is nrSteps x nrIterations
 nrSteps=args.nrSteps
