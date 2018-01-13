@@ -14,6 +14,7 @@ install:
   - conda list
   - pip install pydiffmap
   - pip install rmsd
+  - pip install MDAnalysis
 
 before_script:
   - python -V
@@ -29,7 +30,7 @@ script:
   - python main_run.py --folderName 'test_travis' --algorithm 4 --diffusionMap TMDiffmap --diffMapMetric 'euclidean'
   - python main_run.py --folderName 'test_travis' --algorithm 5 --diffusionMap Diffmap --diffMapMetric 'euclidean'
   - python main_run.py --folderName 'test_travis' --algorithm 6 --diffusionMap Diffmap --diffMapMetric 'euclidean'
-  - python main_run.py --folderName 'test_travis' --algorithm 8 --diffusionMap Diffmap --diffMapMetric 'euclidean' 
+  - python main_run.py --folderName 'test_travis' --algorithm 8 --diffusionMap Diffmap --diffMapMetric 'euclidean'
 
 env:
   matrix:
