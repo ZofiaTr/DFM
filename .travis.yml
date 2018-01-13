@@ -19,12 +19,17 @@ before_script:
   - python -V
 
 script:
-  - python main_run.py --iterations 2 --replicas 2 --nrsteps 1000 --folderName 'test_travis' --algorithm 0
-  - python main_run.py --iterations 2 --replicas 2 --nrsteps 1000 --folderName 'test_travis' --algorithm 1
-  - python main_run.py --iterations 2 --replicas 2 --nrsteps 1000 --folderName 'test_travis' --algorithm 2
-  - python main_run.py --iterations 2 --replicas 2 --nrsteps 1000 --folderName 'test_travis' --algorithm 3
-  - python main_run.py --iterations 2 --replicas 2 --nrsteps 1000 --folderName 'test_travis' --algorithm 4
-  - python main_run.py --iterations 2 --replicas 2 --nrsteps 1000 --folderName 'test_travis' --algorithm 4 --diffMapMetric 'rmsd'
+  - python main_run.py --folderName 'test_travis' --algorithm 0
+  - python main_run.py --folderName 'test_travis' --algorithm 1
+  - python main_run.py --folderName 'test_travis' --algorithm 2
+  - python main_run.py --folderName 'test_travis' --algorithm 3 --diffusionMap Diffmap --diffMapMetric 'euclidean'
+  - python main_run.py --folderName 'test_travis' --algorithm 3 --diffusionMap Diffmap --diffMapMetric 'rmsd'
+  - python main_run.py --folderName 'test_travis' --algorithm 3 --diffusionMap TMDiffmap --diffMapMetric 'euclidean'
+  - python main_run.py --folderName 'test_travis' --algorithm 3 --diffusionMap TMDiffmap --diffMapMetric 'rmsd'
+  - python main_run.py --folderName 'test_travis' --algorithm 4 --diffusionMap TMDiffmap --diffMapMetric 'euclidean'
+  - python main_run.py --folderName 'test_travis' --algorithm 5 --diffusionMap Diffmap --diffMapMetric 'euclidean'
+  - python main_run.py --folderName 'test_travis' --algorithm 6 --diffusionMap Diffmap --diffMapMetric 'euclidean'
+  - python main_run.py --folderName 'test_travis' --algorithm 8 --diffusionMap Diffmap --diffMapMetric 'euclidean' 
 
 env:
   matrix:
