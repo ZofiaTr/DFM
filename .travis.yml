@@ -24,7 +24,6 @@ script:
   - python main_run.py --folderName 'test_travis' --algorithm 1
   - python main_run.py --folderName 'test_travis' --algorithm 2
   - python main_run.py --folderName 'test_travis' --algorithm 3 --diffusionMap Diffmap --diffMapMetric 'euclidean'
-  - python main_run.py --folderName 'test_travis' --algorithm 3 --diffusionMap Diffmap --diffMapMetric 'rmsd'
   - python main_run.py --folderName 'test_travis' --algorithm 3 --diffusionMap TMDiffmap --diffMapMetric 'euclidean'
   - python main_run.py --folderName 'test_travis' --algorithm 3 --diffusionMap TMDiffmap --diffMapMetric 'rmsd'
   - python main_run.py --folderName 'test_travis' --algorithm 4 --diffusionMap TMDiffmap --diffMapMetric 'euclidean'
