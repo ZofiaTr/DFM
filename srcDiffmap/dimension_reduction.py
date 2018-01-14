@@ -63,6 +63,7 @@ def dominantEigenvectorDiffusionMap(tr, epsilon, sampler, T, method, nrOfFirstEi
             if chosenmetric == 'rmsd':
                 print('Vanilla diffusion map needs to be adjusted for an explicit metric option. TBD.')
 
+            
             mydmap = pydm.DiffusionMap(alpha = 0.5, n_evecs = nrOfFirstEigenVectors, epsilon = epsilon,  k=nrNeigh, metric=chosenmetric)#, neighbor_params = {'n_jobs':-4})
             dmap = mydmap.fit_transform(tr)
 
