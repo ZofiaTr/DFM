@@ -162,7 +162,7 @@ class Stein():
                     self.XL[n] = (self.XL[n] + self.epsilon_step * self.f[n])
                     self.q[n,:,:] =  np.copy(self.XL[n].value_in_unit(self.smpl.model.x_unit))
                 if ns%modit == 0:
-                    np.save(self.dataFolderName+'/stein_final.npy', self.q)
+                    np.save(self.dataFolderName+'/q_stein.npy', {'q' : self.q, 'it' : ns})
                 ## plot progress
                 #plotSamplingDihedrals_fromData(q, smpl.model.testsystem.topology, methodName=None, color='b', title = 'Iteration '+repr(ns))
                 if np.isnan(self.q).any():
