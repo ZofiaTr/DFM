@@ -47,3 +47,5 @@ st.epsilon_step=unit.Quantity(steinStepSize, smpl.model.x_unit)**2
 
 #run stein
 st.run_stein(numberOfSteinSteps = nrSteps)
+
+np.save(dataFolderName+'/stein_final.npy', st.q)
