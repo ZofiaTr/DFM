@@ -41,11 +41,13 @@ class Stein():
          self.smpl = smpl
          self.topology = self.smpl.model.testsystem.topology
          self.modnr = modnr
-         self.setup_stein(dataFolderName, modnr = self.modnr)
+         self.dataFolderName=dataFolderName
+         self.setup_stein(modnr = self.modnr)
 
-    def load_initial_state(self, dataFolderName, modnr = 1):
 
-        self.X_FT = helpers.loadData(dataFolderName+'/Traj/*.h5', self.topology, modnr, align=False)
+    def load_initial_state(self, modnr = 1):
+
+        self.X_FT = helpers.loadData(self.dataFolderName+'/Traj/*.h5', self.topology, modnr, align=False)
         self.X_FT = dimension_reduction.align_with_mdanalysis(self.X_FT, self.smpl)
         return self.X_FT
 
@@ -125,9 +127,9 @@ class Stein():
 
 
 
-    def setup_stein(self, dataFolderName, modnr = 1):
+    def setup_stein(self, modnr = 1):
 
-            self.X_FT = self.load_initial_state( dataFolderName, modnr = modnr)
+            self.X_FT = self.load_initial_state( modnr = modnr)
             self.XL_init = self.create_trajectory_list( self.X_FT)
 
             self.epsilon_step=unit.Quantity(0.015, self.smpl.model.x_unit)**2
@@ -159,7 +161,8 @@ class Stein():
                 for n in range(len(self.XL)):
                     self.XL[n] = (self.XL[n] + self.epsilon_step * self.f[n])
                     self.q[n,:,:] =  np.copy(self.XL[n].value_in_unit(self.smpl.model.x_unit))
-
+                if ns%modit == 0:
+                    np.save(self.dataFolderName+'/stein_final.npy', self.q)
                 ## plot progress
                 #plotSamplingDihedrals_fromData(q, smpl.model.testsystem.topology, methodName=None, color='b', title = 'Iteration '+repr(ns))
                 if np.isnan(self.q).any():

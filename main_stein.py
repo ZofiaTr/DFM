@@ -17,6 +17,10 @@ import stein
 
 import argparse
 
+"""
+call example : python main_stein.py --dataFolder '/Alanine' --nrSteinSteps 2 --steinStepSize 0.015 --modnr 1
+"""
+
 parser = argparse.ArgumentParser(description='Run stein variational importance sampling on a trajectory.')
 parser.add_argument('--dataFolder', dest='dataFolder', type=str, default='Data_Tests/Alanine/',
                     help='Read trajectory from dataFolder.')
@@ -44,6 +48,8 @@ smpl=sampler.Sampler(model=mdl, integrator=intg, algorithm=0, dataFileName='Data
 st = stein.Stein(smpl, dataFolderName, modnr = modnr)
 # change the stein step size
 st.epsilon_step=unit.Quantity(steinStepSize, smpl.model.x_unit)**2
+print('Running steinIS on '+repr(len(st.qInit))+' points')
+np.save(dataFolderName+'/stein_initial.npy', st.qInit)
 
 #run stein
 st.run_stein(numberOfSteinSteps = nrSteps)
