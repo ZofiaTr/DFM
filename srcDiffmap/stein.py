@@ -149,6 +149,8 @@ class Stein():
             #f = compute_force(XL)
 
             modit = int(self.numberOfSteinSteps/10)
+            if modit ==0:
+                modit =1
 
             for ns in range(self.numberOfSteinSteps):
                 if ns%modit==0:
