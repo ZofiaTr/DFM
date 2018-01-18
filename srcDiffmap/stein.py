@@ -124,21 +124,6 @@ class Stein():
         return f_MDforce + f_der
 
 
-    def compute_dihedrals_phi(self,X_FT):
-            psi_indices, phi_indices = [6, 8, 14, 16], [4, 6, 8, 14]
-
-            inp=md.Trajectory(X_FT, md.Topology().from_openmm(self.smpl.model.testsystem.topology))
-
-            Y = md.geometry.compute_dihedrals(inp, [phi_indices, psi_indices])
-            return Y[:,0]
-
-    def compute_dihedrals_psi(self,X_FT):
-            psi_indices, phi_indices = [6, 8, 14, 16], [4, 6, 8, 14]
-
-            inp=md.Trajectory(X_FT, md.Topology().from_openmm(self.smpl.model.testsystem.topology))
-
-            Y = md.geometry.compute_dihedrals(inp, [phi_indices, psi_indices])
-            return Y[:,1]
 
     def setup_stein(self, dataFolderName, modnr = 1):
 
