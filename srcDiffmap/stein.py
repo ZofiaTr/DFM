@@ -150,7 +150,7 @@ class Stein():
             self.f = self.compute_stein_force(self.XL,self.leader_set, self.smpl.model)
             #f = compute_force(XL)
 
-            modit = int(self.numberOfSteinSteps/10)
+            modit = int(self.numberOfSteinSteps/100)
             if modit ==0:
                 modit =1
 
