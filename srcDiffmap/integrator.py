@@ -12,7 +12,7 @@ import openmmtools
 
 from sklearn.neighbors import NearestNeighbors
 import helpers
-
+from simtk import openmm, unit
 
 class Integrator():
 
