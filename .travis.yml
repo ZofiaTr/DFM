@@ -20,7 +20,7 @@ before_script:
   - python -V
 
 script:
-  - python main_test_stein.py
+  - python main_stein.py --dataFolder 'Data_Tests/Alanine' --nrSteinSteps 2 --steinStepSize 0.001 --modnr 10
   - python main_run.py --folderName 'test_travis' --algorithm 0
   - python main_run.py --folderName 'test_travis' --algorithm 1
   - python main_run.py --folderName 'test_travis' --algorithm 2
