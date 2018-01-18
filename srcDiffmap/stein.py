@@ -22,7 +22,7 @@ class Stein():
     dataFolderName = 'data/'
 
     # intialize sampler class together wuth the model
-    mdl=model.Model(modelName)
+    mdl=model.Model('Alanine')
     intg=integrator.Integrator( model=mdl, gamma=1.0 / unit.picosecond, temperature=300 * unit.kelvin, dt=2.0 * unit.femtosecond,  temperatureAlpha=300 * unit.kelvin)
     smpl=sampler.Sampler(model=mdl, integrator=intg, algorithm=0, dataFileName='Data')
 
