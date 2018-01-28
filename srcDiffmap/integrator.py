@@ -56,6 +56,8 @@ class Integrator():
          kinTemp = self.computeKineticTemperature(self.v0)
          self.kineticTemperature=Averages.Average(kinTemp)
          self.kineticTemperature.addSample(kinTemp)
+
+
          print(self.kineticTemperature.getAverage())
 
          # Create a BAOAB integrator
@@ -315,16 +317,15 @@ class Integrator():
         if n_steps % save_interval != 0:
             raise Exception("n_steps (%d) should be an integral multiple of save_interval (%d)" % (n_steps, save_interval))
 
+        abf_force_average =Averages.Average(0)
+        force_average =Averages.Average(0)
+
         # Store trajectory
         xyz = list()
         potEnergy = list()
 
         x = self.x0
-        x = self.periodicBoundaryCondition(x);
-
-        zeroV = 0.0 * x[0,:]
-        if (self.model.fixOneParticle):
-            x[0,:]= zeroV
+        #x = self.periodicBoundaryCondition(x);
 
         #print(x)
 
@@ -335,38 +336,49 @@ class Integrator():
         a = np.exp(-self.gamma * (self.dt))
         b = np.sqrt(1 - np.exp(-2 * self.gamma * (self.dt)))
 
-        f = self.force_fxn(x)
+
 
         forceunit = self.model.force_unit
 
+        #compute free energy given X and V
+        fe, bin_vals = helpers.compute_free_energy(V,   weights=None, nrbins=10, kBT=1)
+        #idx = np.squeeze(np.digitize(V, bin_vals, right=False))
+        idx = (np.digitize(V, bin_vals, right=False))
+        #print(V)
+        nrs, ind_unique = np.unique(idx,return_index=True)
 
-        f -= unit.Quantity(compute_gradient_of_diffusionmap_coordinate(x.value_in_unit(self.model.x_unit), X, V),forceunit)
+        # extend on X
+        extend_fe = np.zeros(X.shape[0])
+        for i in range(X.shape[0]):
+            if idx[i] == fe.shape[0]:
+                idx[i] = idx[i] -1
+            extend_fe[i] = fe[idx[i]]
+
+        Xchosen =  X[ind_unique]
+
+        f=self.force_fxn(x)
+        fABF = unit.Quantity(compute_gradient_of_diffusionmap_coordinate(x.value_in_unit(self.model.x_unit), Xchosen, V, extend_fe),forceunit)
+        f -= fABF
 
         for step in range(n_steps):
             v = v + ((0.5*self.dt ) * f/ self.masses)
             x = x + ((0.5*self.dt ) * v)
 
-            x = self.periodicBoundaryCondition(x);
-
-            if (self.model.fixOneParticle):
-                x[0,:]= zeroV
-
+            #x = self.periodicBoundaryCondition(x);
 
             v = (a * v) + b * np.random.randn(*x.shape) * np.sqrt(self.kT / self.masses)
 
             x = x + ((0.5*self.dt ) * v)
-            x = self.periodicBoundaryCondition(x);
+            #x = self.periodicBoundaryCondition(x);
 
-            if (self.model.fixOneParticle):
-                x[0,:]= zeroV
+            Fbasic=self.force_fxn(x)
 
-            f=self.force_fxn(x)
-            f -= unit.Quantity(compute_gradient_of_diffusionmap_coordinate(x.value_in_unit(self.model.x_unit), X, V),forceunit)
+            f= Fbasic
+            fABF = unit.Quantity(compute_gradient_of_diffusionmap_coordinate(x.value_in_unit(self.model.x_unit), Xchosen, V, extend_fe),forceunit)
+            f -= fABF
 
             v = v + ((0.5*self.dt ) * f / self.masses)
 
-            if (self.model.fixOneParticle):
-                x[0,:]= zeroV
 
 
             if (step+1) % save_interval == 0:
@@ -377,6 +389,11 @@ class Integrator():
 
             #print self.kineticTemperature.getAverage()
 
+            force_average.addSample(np.linalg.norm(Fbasic.value_in_unit(forceunit)))
+            abf_force_average.addSample(np.linalg.norm(fABF.value_in_unit(forceunit)))
+
+        print("ABF mean force "+repr(abf_force_average.getAverage()))
+        print("Mean basic force "+repr(force_average.getAverage()))
         self.xEnd=x
         self.vEnd=v
 
@@ -453,7 +470,7 @@ class Integrator():
 
 ##############################################################
 
-def compute_gradient_of_diffusionmap_coordinate(x, X, V):
+def compute_gradient_of_diffusionmap_coordinate(x, Xchosen, V, extend_fe):
     """
     Compute an approximation of the gradient of diffusionmap at point x using the finite differences of the nearest neighbors
 
@@ -464,38 +481,64 @@ def compute_gradient_of_diffusionmap_coordinate(x, X, V):
         ndarray size (number of points, number of particles * dimension)
     V : diffusionmap coordinate, unitless
         ndarray size (number of points)
+    extend_fe : extended free energy on X
     """
+    #print(x.shape)
+    origshape0 = Xchosen.shape[0]
+    origshape1 = x.shape[0]
+    origshape2 = x.shape[1]
 
-    fe, bin_vals = helpers.compute_free_energy(V,   weights=None, nrbins=5, kBT=1)
-
-    origshape0 = x.shape[0]
-    origshape1 = x.shape[1]
-
-    x = x.reshape(x.shape[0]*x.shape[1])
-    xset = np.zeros((X.shape[0]+1, X.shape[1]))
-    xset[0,:] =x
-    xset[1:,:] = X
-
-    fe_X = np.zeros(X.shape[0])
-    idx = np.where(np.abs(np.exp(-bin_vals)-V)<0.001)
-    print(idx)
-    while(1):
-        pass
-    #fe_X =
-
+    xresh = x.reshape(1,origshape1*origshape2)
     neigh = NearestNeighbors(n_neighbors=3,metric='euclidean')
-    neigh.fit(xset)
 
-    dist, indices = neigh.kneighbors(xset)
-    indices = indices[0]-1
+    neigh.fit(Xchosen )
 
-    #print(indices)
+    dist, indices = neigh.kneighbors(xresh)
+    indices=indices[0]
+
+    tr_chosen_bins_reshBack = Xchosen.reshape(Xchosen.shape[0],origshape1,origshape2)
+
+    f = (extend_fe[indices[1]] - extend_fe[indices[0]])
+    dXinv = np.ones((1,origshape1,origshape2))/(tr_chosen_bins_reshBack[indices[1],:,:] - tr_chosen_bins_reshBack[indices[0],:,:])
+    dV = (V[indices[1]] - V[indices[0]])
+
+    diffFreeEnergy = np.squeeze(f*dV* dXinv)
+    if(np.isinf(diffFreeEnergy).any()):
+        print("inf")
 
 
+    return 10.0*diffFreeEnergy #(np.zeros( diffFreeEnergy.shape)) #.append()
 
-    Xresh = X.reshape(X.shape[0], origshape0, origshape1)
-    f = (fe[indices[1]] - fe[indices[0]]) * np.ones((origshape0,origshape1))/(Xresh[indices[1],:,:] - Xresh[indices[0],:,:])
-
-
-    #f = f.reshape(origshape0, origshape1)
-    return f
+    # fe, bin_vals = helpers.compute_free_energy(V,   weights=None, nrbins=5, kBT=1)
+    #
+    # origshape0 = x.shape[0]
+    # origshape1 = x.shape[1]
+    #
+    # x = x.reshape(x.shape[0]*x.shape[1])
+    # xset = np.zeros((X.shape[0]+1, X.shape[1]))
+    # xset[0,:] =x
+    # xset[1:,:] = X
+    #
+    # fe_X = np.zeros(X.shape[0])
+    # idx = np.where(np.abs(np.exp(-bin_vals)-V)<0.001)
+    # print(idx)
+    # while(1):
+    #     pass
+    # #fe_X =
+    #
+    # neigh = NearestNeighbors(n_neighbors=3,metric='euclidean')
+    # neigh.fit(xset)
+    #
+    # dist, indices = neigh.kneighbors(xset)
+    # indices = indices[0]-1
+    #
+    # #print(indices)
+    #
+    #
+    #
+    # Xresh = X.reshape(X.shape[0], origshape0, origshape1)
+    # f = (fe[indices[1]] - fe[indices[0]]) * np.ones((origshape0,origshape1))/(Xresh[indices[1],:,:] - Xresh[indices[0],:,:])
+    #
+    #
+    # #f = f.reshape(origshape0, origshape1)
+    # return f

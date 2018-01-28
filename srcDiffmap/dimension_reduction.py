@@ -37,10 +37,11 @@ def dominantEigenvectorDiffusionMap(tr, epsilon, sampler, T, method, nrOfFirstEi
         tr = align_with_mdanalysis(X_FT, sampler);
         tr = tr.reshape(X_FT.shape[0], X_FT.shape[1]*X_FT.shape[2])
 
-        E = computeEnergy(tr, sampler, modelShape=False)
+        E=[]
 
         qTargetDistribution=[]
         if method == 'TMDiffmap':
+            E = computeEnergy(tr, sampler, modelShape=False)
             qTargetDistribution= computeTargetMeasure(E, sampler)
 
 
@@ -63,7 +64,7 @@ def dominantEigenvectorDiffusionMap(tr, epsilon, sampler, T, method, nrOfFirstEi
             if chosenmetric == 'rmsd':
                 print('Vanilla diffusion map needs to be adjusted for an explicit metric option. TBD.')
 
-            
+
             mydmap = pydm.DiffusionMap(alpha = 0.5, n_evecs = nrOfFirstEigenVectors, epsilon = epsilon,  k=nrNeigh, metric=chosenmetric)#, neighbor_params = {'n_jobs':-4})
             dmap = mydmap.fit_transform(tr)
 

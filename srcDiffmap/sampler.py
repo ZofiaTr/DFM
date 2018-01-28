@@ -753,7 +753,7 @@ class Sampler():
                 potentialEnergyList=list()
 
                 #------- simulate Langevin
-                if it >= 0:
+                if it == 0:
                     print('Running standard simulation')
                     for rep in range(0, nrRep):
 
@@ -769,7 +769,7 @@ class Sampler():
                         initialPositions[rep] = self.integrator.xEnd
                         initialVelocities[rep] = self.integrator.vEnd
                 #else:
-                if it>0:
+                if it>0 :#and it % 2 ==0:
                 #------- simulate ABF
                     print('Running ABF')
                     for rep in range(0, nrRep):
@@ -779,6 +779,7 @@ class Sampler():
                         self.integrator.v0=initialVelocities[rep]
 
                         xyz_iter, potEnergy = self.integrator.run_langevin_ABF(nrSteps, self.X, self.V, save_interval=self.modNr)
+                        #xyz_iter, potEnergy = self.integrator.run_langevin(nrSteps, save_interval=self.modNr)
                         xyz += xyz_iter
                         if self.saveEnergy==1:
                             potentialEnergyList +=potEnergy
@@ -826,8 +827,11 @@ class Sampler():
                 print('Reshaping the trajectory.')
                 traj =  trajMD.xyz.reshape((trajMD.xyz.shape[0], self.trajSave.xyz.shape[1]*self.trajSave.xyz.shape[2]))
 
+                nrFEV=1
+                dominantEV, q, qEstimated, potEn, kernelDiff, eigenvalues=dimred.dominantEigenvectorDiffusionMap(traj, self.epsilon, self, self.kT, self.method, nrOfFirstEigenVectors=nrFEV+1,   metric=self.diffmap_metric)
+                V1=dominantEV[:,0]
 
-                V1, q, qEstimated, potEn, kernelDiff=dimred.dominantEigenvectorDiffusionMap(traj, self.epsilon, self, self.kT, self.method, energy = potentialEnergyShort, metric = self.diffmap_metric)
+                #V1, q, qEstimated, potEn, kernelDiff=dimred.dominantEigenvectorDiffusionMap(traj, self.epsilon, self.kT, self.method, energy = potentialEnergyShort, metric = self.diffmap_metric)
 
                 self.X = traj
                 self.V = V1

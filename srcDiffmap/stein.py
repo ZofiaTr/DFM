@@ -100,10 +100,10 @@ class Stein():
         force_resh = forcenp.reshape(forcenp.shape[0],forcenp.shape[1]*forcenp.shape[2])
 
         # kernel scaling parameter
-        h=0.04
+        self.h=self.kernel_scaling_parameter
 
         distances = cdist(X_leader, Xresh)
-        kernel = np.exp(-distances**2 / h)
+        kernel = np.exp(-distances**2 / self.h)
 
         # this computes the first part (without the kernel derivatives)
         # f_MDforce is of the format (N_particles, dim)
@@ -115,8 +115,8 @@ class Stein():
         f_MDforce = f_MDforce * model.force_unit / self.smpl.kT
 
         #derivative part
-        f_der = -2.0/h * np.dot(kernel.transpose(), X_leader)
-        f_der += 2.0/h * np.outer(np.sum(kernel,0),np.ones(Xresh.shape[1])) * Xresh
+        f_der = -2.0/self.h * np.dot(kernel.transpose(), X_leader)
+        f_der += 2.0/self.h * np.outer(np.sum(kernel,0),np.ones(Xresh.shape[1])) * Xresh
         f_der = f_der / len(leader_set)
         # reshape to format (N_particles, n_atoms, 3)
         f_der = f_der.reshape(Xresh.shape[0], forcenp.shape[1], forcenp.shape[2])
@@ -133,9 +133,11 @@ class Stein():
             self.XL_init = self.create_trajectory_list( self.X_FT)
 
             self.epsilon_step=unit.Quantity(0.015, self.smpl.model.x_unit)**2
+            self.kernel_scaling_parameter = 0.1
 
             # choose leader set
-            self.numberOfLeaderParticles = int(0.2*(self.X_FT.shape[0]))
+            self.percentageOfLeaderParticles = 0.9
+            self.numberOfLeaderParticles = int(self.percentageOfLeaderParticles*(self.X_FT.shape[0]))
             self.leader_set = np.random.choice(range(self.X_FT.shape[0]), self.numberOfLeaderParticles)#np.array(range(X_short.shape[0]))#
 
             self.kT = self.smpl.kT

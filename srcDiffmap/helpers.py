@@ -67,7 +67,7 @@ def computeTargetMeasure(X_FT, smpl, Erecompute):
 
 def computeEnergy(X_FT, smpl):
 
-    
+
     Erecompute=np.zeros(len(X_FT))
     from simtk import unit
     for i in range(0,len(X_FT)):
@@ -163,6 +163,6 @@ def compute_free_energy(radius,   weights=None, nrbins=100, kBT=1):
     #free_energy+=0.0001
     free_energy= - np.log(free_energy)
 
-    print(edges.shape)
+    #print(edges.shape)
 
     return free_energy, edges[:-1]
