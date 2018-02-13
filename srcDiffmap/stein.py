@@ -11,6 +11,10 @@ import mdtraj as md
 from simtk import unit
 import matplotlib.pyplot as plt
 
+import MDAnalysis as mda
+from MDAnalysis.analysis import align
+from MDAnalysis.analysis.rms import rmsd
+
 
 
 class Stein():
@@ -34,15 +38,20 @@ class Stein():
     #run stein
     st.run_stein(numberOfSteinSteps = 100)
 
+    # results
+    X_steined = st.q
+
     """
 
-    def __init__(self, smpl, dataFolderName, modnr = 1):
+    def __init__(self, smpl, dataFolderName, modnr = 1, noisy_gradient = False):
 
          self.smpl = smpl
          self.topology = self.smpl.model.testsystem.topology
          self.modnr = modnr
          self.dataFolderName=dataFolderName
+         self.noisy_gradient = noisy_gradient
          self.setup_stein(modnr = self.modnr)
+
 
 
     def load_initial_state(self, modnr = 1):
@@ -50,6 +59,10 @@ class Stein():
         self.X_FT = helpers.loadData(self.dataFolderName+'/Traj/*.h5', self.topology, modnr, align=False)
         self.X_FT = dimension_reduction.align_with_mdanalysis(self.X_FT, self.smpl)
         return self.X_FT
+
+    def align_loaded_state(self):
+
+        self.X_FT =self.align_with_mdanalysis(self.X_FT, self.smpl)
 
     def create_trajectory_list(self, X_short):
         self.XL = []
@@ -129,14 +142,16 @@ class Stein():
 
     def setup_stein(self, modnr = 1):
 
+
             self.X_FT = self.load_initial_state( modnr = modnr)
+            self.align_loaded_state()
             self.XL_init = self.create_trajectory_list( self.X_FT)
 
             self.epsilon_step=unit.Quantity(0.015, self.smpl.model.x_unit)**2
             self.kernel_scaling_parameter = 0.1
 
             # choose leader set
-            self.percentageOfLeaderParticles = 0.9
+            self.percentageOfLeaderParticles = 1.0
             self.numberOfLeaderParticles = int(self.percentageOfLeaderParticles*(self.X_FT.shape[0]))
             self.leader_set = np.random.choice(range(self.X_FT.shape[0]), self.numberOfLeaderParticles)#np.array(range(X_short.shape[0]))#
 
@@ -154,11 +169,16 @@ class Stein():
 
             modit = int(self.numberOfSteinSteps/100)
             if modit ==0:
-                modit =1
+                modit = 1
 
             for ns in range(self.numberOfSteinSteps):
                 if ns%modit==0:
                     print('Stein iteration '+repr(ns))
+                    self.XL = self.rmsd_align(self.XL)
+
+                if self.noisy_gradient :
+                    self.leader_set = np.random.choice(range(self.qInit.shape[0]), self.numberOfLeaderParticles)
+
                 self.f = self.compute_stein_force(self.XL,self.leader_set, self.smpl.model)
                 for n in range(len(self.XL)):
                     self.XL[n] = (self.XL[n] + self.epsilon_step * self.f[n])
@@ -170,3 +190,98 @@ class Stein():
                 if np.isnan(self.q).any():
                     print('Explosion. Nan.')
                     break
+
+
+    def run_langevin_stein(self, numberOfSteinSteps = 10):
+
+            self.numberOfSteinSteps = numberOfSteinSteps
+            self.f = self.compute_stein_force(self.XL,self.leader_set, self.smpl.model)
+            #f = compute_force(XL)
+
+            self.numberOfLangevinSteps = 2
+            a = np.exp(-self.smpl.integrator.gamma * (self.smpl.integrator.dt))
+            b = np.sqrt(1 - np.exp(-2 * self.smpl.integrator.gamma * (self.smpl.integrator.dt)))
+
+
+
+            modit = int(self.numberOfSteinSteps/100)
+            if modit ==0:
+                modit =1
+
+            for ns in range(self.numberOfSteinSteps):
+                if ns%modit==0:
+                    print('Stein iteration '+repr(ns))
+
+                    self.XL = self.rmsd_align(self.XL)
+
+                self.f = self.compute_stein_force(self.XL,self.leader_set, self.smpl.model)
+                for n in range(len(self.XL)):
+                    self.XL[n] = (self.XL[n] + self.epsilon_step * self.f[n])
+
+                    fLan = self.smpl.model.force(self.XL[n])
+                    v = np.random.randn(*self.XL[n].shape) * np.sqrt(self.smpl.kT / self.smpl.model.masses)
+                    for i in range(self.numberOfLangevinSteps):
+                        self.XL[n], v, fLan = self.Langevin_step(self.XL[n] , v, fLan, a, b,  self.smpl.integrator.dt)
+
+                    self.q[n,:,:] =  np.copy(self.XL[n].value_in_unit(self.smpl.model.x_unit))
+                if ns%modit == 0:
+                    np.save(self.dataFolderName+'/q_stein.npy', {'q' : self.q, 'it' : ns})
+                ## plot progress
+                #plotSamplingDihedrals_fromData(q, smpl.model.testsystem.topology, methodName=None, color='b', title = 'Iteration '+repr(ns))
+                if np.isnan(self.q).any():
+                    print('Explosion. Nan.')
+                    break
+
+    def Langevin_step(self, x , v, f,a, b,  dt):
+
+        v = v + ((0.5*dt ) * f/ self.smpl.model.masses)
+        x = x + ((0.5*dt ) * v)
+
+
+        v = (a * v) + b * np.random.randn(*x.shape) * np.sqrt(self.smpl.kT / self.smpl.model.masses)
+
+        x = x + ((0.5*dt ) * v)
+        f=self.smpl.model.force(x)
+
+        v = v + ((0.5*dt ) * f / self.smpl.model.masses)
+
+        return x, v , f
+
+
+    def align_with_mdanalysis(self, X_FT, smpl):
+
+        trj = mda.Universe(smpl.model.modelName+'.pdb', X_FT)
+        ref = mda.Universe(smpl.model.modelName+'.pdb')
+        # trj = mda.Universe('/Users/zofia/github/DFM/alanine.xyz', X_FT)
+        # print(trj.trajectory)
+        # ref = mda.Universe('/Users/zofia/github/DFM/alanine.xyz')#, X_FT[0,:,:])
+
+
+        alignment = align.AlignTraj(trj, ref)#, filename='rmsfit.dcd')
+        alignment.run()
+        X_aligned = np.zeros(X_FT.shape)
+        ci=0
+        for ts in trj.trajectory:
+            X_aligned[ci] = trj.trajectory.ts.positions
+            ci=ci+1
+
+        #X_aligned = (trj.trajectory.positions)
+        #print(X_aligned.shape)
+        #print(alignment)
+        return X_aligned
+
+    def rmsd_align(self, XL):
+
+        xx=[]
+        for i in range(len(XL)):
+            xx.append(XL[i].value_in_unit(self.smpl.model.x_unit))
+
+        xx=np.asarray(xx)
+        #print(xx.shape)
+
+        xx = self.align_with_mdanalysis(xx, self.smpl)
+
+        XL=[]
+        for i in range(xx.shape[0]):
+            XL.append(unit.Quantity(xx[i], self.smpl.model.x_unit))
+        return XL
