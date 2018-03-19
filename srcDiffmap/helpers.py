@@ -156,7 +156,7 @@ def get_levelset_cv(X, width, cv):
 #     return free_energy
 
 
-def compute_free_energy(radius,   weights=None, nrbins=100, kBT=1):
+def compute_free_energy(radius,   weights=None, nrbins=100, kBT=1, err_bar = False):
 
 
     free_energy, edges=np.histogram(radius, bins=nrbins, weights = weights, normed=True)
@@ -164,5 +164,44 @@ def compute_free_energy(radius,   weights=None, nrbins=100, kBT=1):
     free_energy= - np.log(free_energy)
 
     #print(edges.shape)
+    if err_bar == True:
+        xerrs, yerrs = hist_errorbars(radius, bins=nrbins, weights = weights, normed=True, xerrs=True)
+        return free_energy, edges[:-1],
+    else:
 
-    return free_energy, edges[:-1]
+        return free_energy, edges[:-1]
+
+
+
+import inspect
+
+def hist_errorbars( data, xerrs=True, *args, **kwargs) :
+    """Plot a histogram with error bars. Accepts any kwarg accepted by either numpy.histogram or pyplot.errorbar"""
+    # pop off normed kwarg, since we want to handle it specially
+    norm = False
+    if 'normed' in kwargs.keys() :
+        norm = kwargs.pop('normed')
+
+    # retrieve the kwargs for numpy.histogram
+    histkwargs = {}
+    for key, value in kwargs.iteritems() :
+        if key in inspect.getargspec(np.histogram).args :
+            histkwargs[key] = value
+
+    histvals, binedges = np.histogram( data, **histkwargs )
+    yerrs = np.sqrt(histvals)
+
+    if norm :
+        nevents = float(sum(histvals))
+        binwidth = (binedges[1]-binedges[0])
+        histvals = histvals/nevents/binwidth
+        yerrs = yerrs/nevents/binwidth
+
+    bincenters = (binedges[1:]+binedges[:-1])/2
+
+    if xerrs :
+        xerrs = (binedges[1]-binedges[0])/2
+    else :
+        xerrs = None
+
+    return xerrs, yerrs

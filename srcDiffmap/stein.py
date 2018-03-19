@@ -43,7 +43,7 @@ class Stein():
 
     """
 
-    def __init__(self, smpl, dataFolderName, modnr = 1, noisy_gradient = False):
+    def __init__(self, smpl, dataFolderName, modnr = 1, noisy_gradient = False, kernel_metric = 'euclidean'):
 
          self.smpl = smpl
          self.topology = self.smpl.model.testsystem.topology
@@ -51,6 +51,7 @@ class Stein():
          self.dataFolderName=dataFolderName
          self.noisy_gradient = noisy_gradient
          self.setup_stein(modnr = self.modnr)
+         self.kernel_metric = kernel_metric
 
 
 
@@ -115,7 +116,7 @@ class Stein():
         # kernel scaling parameter
         self.h=self.kernel_scaling_parameter
 
-        distances = cdist(X_leader, Xresh)
+        distances = cdist(X_leader, Xresh, metric = self.kernel_metric)
         kernel = np.exp(-distances**2 / self.h)
 
         # this computes the first part (without the kernel derivatives)

@@ -1,4 +1,4 @@
-REMARK   1 CREATED WITH OPENMM 7.1.1, 2018-01-10
+REMARK   1 CREATED WITH OPENMM 7.1.1, 2018-03-05
 HETATM    1  N    N2 A   1       0.000   0.000   0.000  1.00  0.00           N  
 HETATM    2  N    N2 A   1       1.550   0.000   0.000  1.00  0.00           N  
 TER       3       N2 A   1

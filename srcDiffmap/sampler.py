@@ -666,8 +666,8 @@ class Sampler():
                             dist = np.minimum(dist, scidist.cdist(V1[[idx_corner[-1]],:], V1)[0])
                         else:
                             dist = scidist.cdist(V1[idx_corner,:], V1)[0]
-                        # select new cornerstone
-                        idx_corner.append(np.argmax(dist))
+                    # select new cornerstone
+                    idx_corner.append(np.argmax(dist))
 
                     ####
                     tmp=traj[idx_corner].reshape(np.append(nrRep, self.trajSave.xyz[0].shape))
