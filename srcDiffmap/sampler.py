@@ -29,13 +29,16 @@ class Sampler():
     """
 
 
-    def __init__(self, model, integrator, algorithm=0, diffusionMapMetric='euclidean', dataFileName='/Data', dataFrontierPointsName = '/FrontierPoints', dataEigenVectorsName='/Eigenvectors', dataEnergyName='/Energies', diffusionMap='Diffmap'):
+    def __init__(self, model, integrator, algorithm=0, numberOfDCs = 2, diffusionMapMetric='euclidean', dataFileName='/Data', dataFrontierPointsName = '/FrontierPoints', dataEigenVectorsName='/Eigenvectors', dataEnergyName='/Energies', diffusionMap='Diffmap'):
 
         self.model=model
         self.algorithm=algorithm
         self.integrator=integrator
 
         self.diffmap_metric = diffusionMapMetric # dm.myRMSDmetricPrecentered
+
+        # number of diffusion coordinates to be computed in diffusion maps
+        self.numberOfDCs = numberOfDCs
 
         #set the temperature here - then passed to the integrator
         self.kT=self.integrator.kT
@@ -50,7 +53,7 @@ class Sampler():
         self.method=diffusionMap #'TMDiffmap' or 'Diffmap'
 
         #diffusion maps constants
-        self.epsilon='bgh'#0.1 #0.05
+        self.epsilon='bgh' #0.1 #0.05
         if self.diffmap_metric == 'rmsd':
             self.epsilon = 0.1
             print('If the metric is rmsd, epsilon must have numeric value.')
@@ -553,7 +556,7 @@ class Sampler():
                 # if it isnt sufficient, stride less
 
                 maxNumberOfStrideAttempts=3
-                check_convergence_eigenvalues=1
+                self.check_convergence_eigenvalues=0
                 nrOfStrideAttempt=0
                 errorToleranceEigenvalues = 0.001
 
@@ -562,7 +565,11 @@ class Sampler():
                 maxDataLengthLoc=self.maxDataLength
 
                 while (errEW > errorToleranceEigenvalues and nrOfStrideAttempt<maxNumberOfStrideAttempts):
-                        nrOfStrideAttempt += 1
+
+                        if self.check_convergence_eigenvalues ==0:
+                            nrOfStrideAttempt=maxNumberOfStrideAttempts
+                        else:
+                            nrOfStrideAttempt += 1
 
                         print('*******************************')
                         print('Stride iteration '+repr(nrOfStrideAttempt))
@@ -601,7 +608,7 @@ class Sampler():
                         if(self.corner==0):
                             nrFEV = 1
                         else:
-                            nrFEV = 2
+                            nrFEV = self.numberOfDCs
 
                         dominantEV, q, qEstimated, potEn, kernelDiff, eigenvalues=dimred.dominantEigenvectorDiffusionMap(traj, self.epsilon, self, self.kT, self.method, nrOfFirstEigenVectors=nrFEV+1, energy = potentialEnergyShort,  metric=self.diffmap_metric)
                         # skip the zeroth eigenvector
@@ -611,7 +618,7 @@ class Sampler():
                         if lastTrajSteps>= traj.shape[0]:
                             lastTrajSteps = int(0.1*traj.shape[0])
 
-                        if check_convergence_eigenvalues:
+                        if self.check_convergence_eigenvalues:
 
                             V1_short, q_short, qEstimated_short, potEn_short, kernelDiff_short, eigenvalues_short=dimred.dominantEigenvectorDiffusionMap(traj[:-lastTrajSteps], self.epsilon, self, self.kT, self.method, nrOfFirstEigenVectors=nrFEV+1, energy = potentialEnergyShort,  metric=self.diffmap_metric)
                             errEW = np.abs(eigenvalues[0]-eigenvalues_short[0])
@@ -642,11 +649,8 @@ class Sampler():
 
                     dist = scidist.cdist(V1[[idx_corner],:], V1)[0]
 
-
                     # find first cornerstone
                     idx_corner = [np.argmax(dist)]
-
-
 
                     # # # ## take the point with maximal value of the first ev
                     # idx_corner = np.argmax(np.abs(V1[:,0]))
@@ -666,10 +670,11 @@ class Sampler():
                             dist = np.minimum(dist, scidist.cdist(V1[[idx_corner[-1]],:], V1)[0])
                         else:
                             dist = scidist.cdist(V1[idx_corner,:], V1)[0]
-                    # select new cornerstone
-                    idx_corner.append(np.argmax(dist))
+                        # select new cornerstone
+                        idx_corner.append(np.argmax(dist))
 
                     ####
+
                     tmp=traj[idx_corner].reshape(np.append(nrRep, self.trajSave.xyz[0].shape))
                     frontierPoint = tmp
                     frontierPointSave = tmp
