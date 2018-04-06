@@ -25,7 +25,7 @@ import model
 
 #create model defined in class model
 
-modelName = 'Alanine'
+modelName = 'Chignolin'
 mdl=model.Model(modelName)
 
 # IC = md.load('alanine_start_state_IC.h5')
@@ -57,6 +57,8 @@ parser.add_argument('--diffMapMetric', dest='diffMapMetric', type=str, default='
                     help='Metric for diffusion maps. Choose between rmsd and euclidean.')
 parser.add_argument('--diffusionMap', dest='diffusionMap', type=str, default='Diffmap',
                     help='Diffusion map: choose Diffmap for vanilla or TMDiffmap for target measure diffusion map.')
+parser.add_argument('--nrDC', dest='nrDC', type=int, default=2,
+                    help='Number of diffusion coordinates to compute by diffusion map.')
 
 
 args = parser.parse_args()
@@ -102,7 +104,7 @@ else:
     print('Error: wrong algorithm flag. ')
 
 
-
+################################
 
 # parameters
 T=300.0
@@ -112,6 +114,8 @@ kT = kB * temperature
 
 gamma = 1.0 / unit.picosecond
 dt = 1.0 * unit.femtosecond
+
+################################
 
 TemperatureTAMDFactor=30.0
 massScale=50.0
@@ -162,20 +166,23 @@ integrator=integrator.Integrator( model=mdl, gamma=gamma, temperature=temperatur
 # InitialPosition = np.squeeze(IC.xyz)
 # integrator.x0 = InitialPosition * mdl.x_unit
 
-general_sampler=sampler.Sampler(model=mdl, integrator=integrator, algorithm=iAlgo, diffusionMapMetric=diffMapMetric, dataFileName=dataFileName, dataFrontierPointsName = dataFileNameFrontierPoints, dataEigenVectorsName =dataFileNameEigenVectors, dataEnergyName = dataFileEnergy, diffusionMap=diffusionMap)
+general_sampler=sampler.Sampler(model=mdl, integrator=integrator, algorithm=iAlgo, numberOfDCs=args.nrDC, diffusionMapMetric=diffMapMetric, dataFileName=dataFileName, dataFrontierPointsName = dataFileNameFrontierPoints, dataEigenVectorsName =dataFileNameEigenVectors, dataEnergyName = dataFileEnergy, diffusionMap=diffusionMap)
 
 # nrSteps is number of steps for each nrRep , and iterate the algo nrIterations times - total simulation time is nrSteps x nrIterations
 nrSteps=args.nrSteps
-nrEquilSteps = 0 #10000
+nrEquilSteps = 10000
 nrIterations=args.niterations
 nrRep=args.nreplicas
 
-print('Simulation time: '+repr(nrSteps*nrIterations*dt.value_in_unit(unit.femtosecond))+' '+str(unit.femtosecond)+'\n ***** \n' )
+Equilibration = False
+
 #
-if (nrEquilSteps>0):
+if (nrEquilSteps>0 and Equilibration):
     print('Equilibration: '+repr(nrEquilSteps*dt.value_in_unit(unit.picosecond))+' '+str(unit.picosecond)+'\n ***** \n' )
     general_sampler.run_std(nrEquilSteps, 1, 1)
     general_sampler.resetInitialConditions()
 # run the simulation
-print('\n ****\n Starting simulation\n')
+print('\n****\nStarting simulation\n')
+print('Simulation time: '+repr(nrSteps*nrIterations*dt.value_in_unit(unit.femtosecond))+' '+str(unit.femtosecond)+'\n ***** \n' )
+
 general_sampler.run(nrSteps, nrIterations, nrRep)

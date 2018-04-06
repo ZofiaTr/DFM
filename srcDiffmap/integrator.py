@@ -14,6 +14,8 @@ from sklearn.neighbors import NearestNeighbors
 import helpers
 from simtk import openmm, unit
 
+
+
 class Integrator():
 
     def __init__(self, model, gamma, temperature, temperatureAlpha, dt, massScale=100.0, gammaScale=100.0, kappaScale=100.0):
@@ -30,8 +32,6 @@ class Integrator():
          self.kT = kB * self.temperature
 
          self.x0=self.model.positions
-
-
 
          self.v0=np.random.randn(*self.x0.shape) * np.sqrt(self.kT / self.masses)
 
@@ -62,6 +62,7 @@ class Integrator():
 
          # Create a BAOAB integrator
          self.langevin_integrator = openmmtools.integrators.LangevinIntegrator(temperature=self.temperature, collision_rate=self.gamma, timestep=self.dt, splitting='V R O R V')
+
 
          # Create a Context for integration
          self.context = openmm.Context(self.model.system, self.langevin_integrator)

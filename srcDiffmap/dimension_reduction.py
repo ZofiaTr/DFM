@@ -137,7 +137,6 @@ def dominantEigenvectorDiffusionMap(tr, epsilon, sampler, T, method, nrOfFirstEi
                 evecs = np.real(evecs[:, ix])
                 dmap = np.dot(evecs, np.diag(evals))
 
-
                 lambdas = evals
                 v1 = evecs
                 qEstimated = q
@@ -145,18 +144,12 @@ def dominantEigenvectorDiffusionMap(tr, epsilon, sampler, T, method, nrOfFirstEi
 
             elif chosenmetric=='euclidean':
 
-
-                mydmap = pydm.DiffusionMap(alpha = 1, n_evecs = nrOfFirstEigenVectors, epsilon = epsilon,  k=nrNeigh, metric='euclidean')#, neighbor_params = {'n_jobs':-4})
+                mydmap = pydm.DiffusionMap(alpha = 1, n_evecs = nrOfFirstEigenVectors, epsilon = epsilon,  k=nrNeigh, metric='euclidean')
                 dmap = mydmap.fit_transform(tr, weights = qTargetDistribution)
 
                 P = mydmap.P
                 lambdas = mydmap.evals
                 v1 = mydmap.evecs
-
-                [evalsT, evecsT] = spsl.eigs(P.transpose(),k=1, which='LM')
-                phi = np.real(evecsT.ravel())
-
-                #q = mydmap.q
 
                 qEstimated = mydmap.q
                 kernelDiff=mydmap.local_kernel

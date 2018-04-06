@@ -6,6 +6,9 @@ from simtk import openmm, unit
 from simtk.openmm import app
 from openmmtools import testsystems
 import openmmtools
+
+import parmed as pmd
+
 #i = importlib.import_module("matplotlib.text")
 
 from openmmtools.constants import kB
@@ -13,12 +16,14 @@ from openmmtools.constants import kB
 
 class Model():
 
-    def __init__(self, modelName='Dimer'):
+    def __init__(self, modelName='Dimer', save_topology = False):
 
 
         self.energy_unit = unit.kilojoule_per_mole
 
-        self.modelName = modelName
+        self.modelName = str(modelName)
+
+
         if (self.modelName == 'Dimer'):
 
             self.testsystem = self.createDimer();
@@ -26,6 +31,31 @@ class Model():
             self.modelname=str(name)
 
 
+        elif (self.modelName == 'Chignolin'):
+
+            pdb = app.PDBFile('Chignolin_input/solvated.pdb')
+            parm = pmd.load_file('Chignolin_input/solvated.parm7', 'Chignolin_input/solvated.rst7')
+            topology = parm.topology #'Chignolin_input/solvated.rst'
+            forcefield = app.ForceField('amber99sb.xml', 'tip3p.xml')
+            system = forcefield.createSystem(pdb.topology, nonbondedMethod=app.PME, \
+                                    nonbondedCutoff=1*unit.nanometer, constraints=app.HBonds)
+            #system = parm.createSystem()
+            #parm.forcefield = app.ForceField('amber14-all.xml', 'tip3p.xml')
+            #print(self.testsystem)
+            #testsystem.topology = topology
+            #system = openmm.System()
+
+            self.testsystem = testsystems.TestSystem()
+            self.testsystem.system = system
+
+            positions = np.zeros((len(pdb.positions),3))
+            for i in range(len(pdb.positions)):
+                 positions[i,:] = np.asarray(pdb.positions[i].value_in_unit(unit.angstrom))
+
+            self.testsystem.positions = unit.Quantity( positions, unit.angstrom)
+
+            self.testsystem.topology = topology
+            self.modelname = self.modelName
 
         elif (self.modelName == 'Lemon'):
 
@@ -69,6 +99,8 @@ class Model():
         self.context = openmm.Context(self.system, dummy_integrator)
         self.context.setPositions(self.positions)
 
+        print(self.positions)
+
         if(self.modelName == 'Alanine'):
             # adjust periodic box
             ## TBD this should be moved inside the integrator class
@@ -78,12 +110,22 @@ class Model():
             print('PBC box size set to '+repr(self.boxsize))
             self.edge = self.boxsize * self.testsystem.positions.unit
             self.testsystem.system.setDefaultPeriodicBoxVectors([self.edge,0,0], [0,self.edge,0], [0,0,self.edge])
-
+        # elif(self.modelName == 'Chignolin'):
+        #     maxval = np.max(np.abs(np.vstack(self.positions.value_in_unit(self.positions.unit))))
+        #     self.boxsize = 2.0 * maxval
+        #     print('Maximal position value in one direction is '+repr(maxval))
+        #     print('PBC box size set to '+repr(self.boxsize))
+        #     self.edge = - np.abs(self.boxsize) * self.testsystem.positions.unit
+        #     self.testsystem.system.setDefaultPeriodicBoxVectors([self.edge,0,0], [0,self.edge,0], [0,0,self.edge])
+        else:
+            print("Periodic box not adjusted manually.")
         # if(relax == 1):
         #     self.context.minimizeEnergy(tolerance=2.0)
 
 
         self.x_unit = self.positions.unit
+
+        print("The position unit is "+repr(self.x_unit))
         self.force_unit = unit.kilocalorie_per_mole / self.x_unit
         self.time_unit = unit.femtosecond
         self.velocity_unit = self.x_unit / self.time_unit
@@ -97,7 +139,8 @@ class Model():
         self.fixOneParticle=0
 
         #save Topology
-        openmm.app.PDBFile.writeFile(self.testsystem.topology, self.positions, open(self.modelName+'.pdb', 'w'))
+        if save_topology:
+            openmm.app.PDBFile.writeFile(self.testsystem.topology, self.positions, open(self.modelName+'.pdb', 'w'))
 
 
 

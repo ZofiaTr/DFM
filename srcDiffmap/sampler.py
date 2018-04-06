@@ -66,6 +66,8 @@ class Sampler():
 
         self.modNr=10
 
+        self.save_to_pdb = True
+
         self.kTraj_LM_save=None
         self.V1_LM_save=None
 
@@ -103,7 +105,6 @@ class Sampler():
         if self.algorithm==8:
             self.algorithmName = 'local_frontier_points'
 
-        #print(self.model.testsystem.topology)
         self.topology = md.Topology().from_openmm(self.model.testsystem.topology)
         self.trajSave= md.Trajectory(self.model.positions.value_in_unit(self.model.x_unit), self.topology)
         self.savingFolder=dataFileName+'/'+self.model.modelName
@@ -248,7 +249,10 @@ class Sampler():
                 print(self.trajSave)
 
                 print('Saving traj to file')
-                self.trajSave.save(self.savingFolder+'traj_'+repr(it)+'.h5')
+                if self.save_to_pdb:
+                    self.trajSave.save_pdb(self.savingFolder+'traj_'+repr(it)+'.pdb')
+                else:
+                    self.trajSave.save(self.savingFolder+'traj_'+repr(it)+'.h5')
 
                 if self.saveEnergy==1:
                     print('Saving energy to file')
@@ -681,10 +685,6 @@ class Sampler():
 
                     #every replica can get different initial condition
                     initialPositions=[frontierPoint[rep]* self.integrator.model.x_unit for rep in range(0,nrRep)]
-
-
-                    #self.integrator.x0=frontierPoint  # what does this do? frontier point should be an array of initial conditions, one for each replica.
-                                                      # I hope it gives every replica the right initial condition.
 
                     # ** #################################################
 
