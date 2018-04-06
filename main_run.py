@@ -113,25 +113,13 @@ kT = kB * temperature
 
 
 gamma = 1.0 / unit.picosecond
-dt = 1.0 * unit.femtosecond
+dt = 2.0 * unit.femtosecond
 
 ################################
 
-TemperatureTAMDFactor=30.0
-massScale=50.0
-
-gammaScale=100.0
-kappaScale=1000.0
-
-if iAlgo >0:
-    print("TemperatureTAMDFactor = " + repr(TemperatureTAMDFactor))
-temperatureAlpha= (T*TemperatureTAMDFactor)* unit.kelvin
 
 print('Gamma is '+repr(gamma))
 print('Temperature is '+repr(temperature))
-if iAlgo >0:
-    print('Temperature TAMD '+repr(TemperatureTAMDFactor)+'xTemperature')
-    print('Mass alpha is '+repr(massScale)+'x Mass')
 
 #create folders to save the data
 
@@ -158,15 +146,15 @@ if not os.path.exists(newpath):
         os.makedirs(newpath)
 
 # simulation class sampler takes integrator class with chosen parameters as input
-integrator=integrator.Integrator( model=mdl, gamma=gamma, temperature=temperature, temperatureAlpha=temperatureAlpha, dt=dt, massScale=massScale, gammaScale=gammaScale, kappaScale=kappaScale)
+integrator=integrator.Integrator( model=mdl, gamma=gamma, temperature=temperature,  dt=dt)
 
 ## load initial condition from file
 # IC = md.load('alanine_start_state_IC.h5')
 # # remove first dimension - the intial condition has shape (1,nrParticles, spaceDimension) when taken from trajectory
 # InitialPosition = np.squeeze(IC.xyz)
 # integrator.x0 = InitialPosition * mdl.x_unit
-
-general_sampler=sampler.Sampler(model=mdl, integrator=integrator, algorithm=iAlgo, numberOfDCs=args.nrDC, diffusionMapMetric=diffMapMetric, dataFileName=dataFileName, dataFrontierPointsName = dataFileNameFrontierPoints, dataEigenVectorsName =dataFileNameEigenVectors, dataEnergyName = dataFileEnergy, diffusionMap=diffusionMap)
+sampler_parameters = {'proteinPDBFile':'Chignolin_input/protein.pdb', 'proteinEndIndex': 138}
+general_sampler=sampler.Sampler(model=mdl, integrator=integrator, algorithm=iAlgo, params = sampler_parameters, numberOfDCs=args.nrDC, diffusionMapMetric=diffMapMetric, dataFileName=dataFileName, dataFrontierPointsName = dataFileNameFrontierPoints, dataEigenVectorsName =dataFileNameEigenVectors, dataEnergyName = dataFileEnergy, diffusionMap=diffusionMap)
 
 # nrSteps is number of steps for each nrRep , and iterate the algo nrIterations times - total simulation time is nrSteps x nrIterations
 nrSteps=args.nrSteps

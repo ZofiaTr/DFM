@@ -29,11 +29,13 @@ class Sampler():
     """
 
 
-    def __init__(self, model, integrator, algorithm=0, numberOfDCs = 2, diffusionMapMetric='euclidean', dataFileName='/Data', dataFrontierPointsName = '/FrontierPoints', dataEigenVectorsName='/Eigenvectors', dataEnergyName='/Energies', diffusionMap='Diffmap'):
+    def __init__(self, model, integrator, algorithm=0, numberOfDCs = 2, params={}, diffusionMapMetric='euclidean', dataFileName='/Data', dataFrontierPointsName = '/FrontierPoints', dataEigenVectorsName='/Eigenvectors', dataEnergyName='/Energies', diffusionMap='Diffmap'):
 
         self.model=model
         self.algorithm=algorithm
         self.integrator=integrator
+
+        self.params = params
 
         self.diffmap_metric = diffusionMapMetric # dm.myRMSDmetricPrecentered
 
@@ -66,7 +68,7 @@ class Sampler():
 
         self.modNr=10
 
-        self.save_to_pdb = True
+        self.save_to_pdb = False
 
         self.kTraj_LM_save=None
         self.V1_LM_save=None
@@ -106,7 +108,28 @@ class Sampler():
             self.algorithmName = 'local_frontier_points'
 
         self.topology = md.Topology().from_openmm(self.model.testsystem.topology)
-        self.trajSave= md.Trajectory(self.model.positions.value_in_unit(self.model.x_unit), self.topology)
+
+        self.saveProteinOnly = True
+        if self.saveProteinOnly:
+            try:
+                proteinPDBFile = self.params['proteinPDBFile']
+            except:
+                raise KeyError
+
+            try:
+                self.proteinEndIndex = self.params['proteinEndIndex']
+            except:
+                raise KeyError
+
+            self.topologyProtein = md.load(proteinPDBFile).topology
+
+
+            self.trajSave= md.Trajectory(self.model.positions.value_in_unit(self.model.x_unit)[ :self.proteinEndIndex, :], self.topologyProtein)
+            print("Saving Protein Only in shape : " + repr(self.trajSave.xyz.shape))
+        else:
+            self.trajSave = md.Trajectory(self.model.positions.value_in_unit(self.model.x_unit), self.topology)
+            print("Saving the whole system : " + repr(self.trajSave.xyz.shape))
+
         self.savingFolder=dataFileName+'/'+self.model.modelName
         self.savingFolderEnergy=dataEnergyName
         self.savingFolderFrontierPoints = dataFrontierPointsName
@@ -121,8 +144,6 @@ class Sampler():
             self.integrator.z0=self.integrator.zEnd
             self.integrator.vz0=self.integrator.vzEnd
             self.integrator.kineticTemperature.clear()
-
-
 
     def run(self, nrSteps, nrIterations, nrRep):
 
@@ -149,21 +170,18 @@ class Sampler():
         self.run_frontierPoints(nrSteps, nrIterations, nrRep)
 
     def run_local_frontier_points_corner_change_temperature_off(self, nrSteps, nrIterations, nrRep):
-
         self.local_CV = 1
         self.changeTemperature = 0
         self.corner = 1
         self.run_frontierPoints(nrSteps, nrIterations, nrRep)
 
     def run_local_frontier_points_corner_change_temperature(self, nrSteps, nrIterations, nrRep):
-
         self.local_CV = 1
         self.changeTemperature = 1
         self.corner = 1
         self.run_frontierPoints(nrSteps, nrIterations, nrRep)
 
     def run_local_frontier_points(self, nrSteps, nrIterations, nrRep):
-
         self.local_CV = 1
         self.changeTemperature = 0
         self.corner = 0
@@ -237,16 +255,17 @@ class Sampler():
                     initialPositions[rep] = self.integrator.xEnd
                     initialVelocities[rep] = self.integrator.vEnd
 
-                #tmpselftraj=np.copy(self.sampled_trajectory)
-                #self.sampled_trajectory=np.concatenate((tmpselftraj,np.copy(Xrep[-1].value_in_unit(self.model.x_unit))))
+                # create mdtrajectory for saving the data
+                if self.saveProteinOnly:
+                    trajSaveAll= md.Trajectory(xyz, self.topology)
+                    self.trajSave= md.Trajectory(trajSaveAll.xyz[:, :self.proteinEndIndex, :], self.topologyProtein)
 
-                self.trajSave=md.Trajectory(xyz, self.topology)
-                # align frames using mdtraj
-                self.trajSave = self.trajSave.center_coordinates()
-                self.trajSave=self.trajSave.superpose(self.trajSave, 0)
+                else:
+                    self.trajSave=md.Trajectory(xyz, self.topology)
+                    # align frames using mdtraj
+                    self.trajSave = self.trajSave.center_coordinates()
+                    self.trajSave=self.trajSave.superpose(self.trajSave, 0)
 
-                #self.trajSave = self.trajSave.center_coordinates()
-                print(self.trajSave)
 
                 print('Saving traj to file')
                 if self.save_to_pdb:
@@ -257,12 +276,6 @@ class Sampler():
                 if self.saveEnergy==1:
                     print('Saving energy to file')
                     np.save(self.savingFolderEnergy+'E_'+repr(it), potentialEnergyList)
-
-                #np.save(self.savingFolder+'E_'+repr(it),potEnergy)
-                #if (nrSteps*nrIterations*nrRep)> 10**6:
-            #    self.sampled_trajectory=Xrep[::modNr**2]
-            #else:
-            #    self.sampled_trajectory=Xit
 
 #----------------- TAMD/EFTAD
 
@@ -316,7 +329,17 @@ class Sampler():
                     self.timeAv.addSample(tavEnd-tav0)
 
                 xyz=[x.value_in_unit(self.model.x_unit) for x in Xrep[::self.modNr]]
-                self.trajSave=md.Trajectory(xyz, self.topology)
+
+                # create mdtrajectory for saving the data
+                if self.saveProteinOnly:
+                    trajSaveAll= md.Trajectory(xyz, self.topology)
+                    self.trajSave= md.Trajectory(trajSaveAll.xyz[:, :self.proteinEndIndex, :], self.topologyProtein)
+
+                else:
+                    self.trajSave=md.Trajectory(xyz, self.topology)
+                    # align frames using mdtraj
+                    self.trajSave = self.trajSave.center_coordinates()
+                    self.trajSave=self.trajSave.superpose(self.trajSave, 0)
 
                 print('Saving traj to file')
                 self.trajSave.save(self.savingFolder+'traj_'+repr(it)+'.h5')
@@ -382,8 +405,16 @@ class Sampler():
                     tavEnd=time.time()
                     self.timeAv.addSample(tavEnd-tav0)
 
+                # create mdtrajectory for saving the data
+                if self.saveProteinOnly:
+                    trajSaveAll= md.Trajectory(xyz, self.topology)
+                    self.trajSave= md.Trajectory(trajSaveAll.xyz[:, :self.proteinEndIndex, :], self.topologyProtein)
 
-                self.trajSave=md.Trajectory(xyz, self.topology)
+                else:
+                    self.trajSave=md.Trajectory(xyz, self.topology)
+                    # align frames using mdtraj
+                    self.trajSave = self.trajSave.center_coordinates()
+                    self.trajSave=self.trajSave.superpose(self.trajSave, 0)
 
                 print('Saving traj to file')
                 self.trajSave.save(self.savingFolder+'traj_'+repr(it)+'.h5')
@@ -516,13 +547,16 @@ class Sampler():
                         initialVelocities[rep] = self.integrator.vEnd
 
 
-                # creat md traj object
-                self.trajSave=md.Trajectory(xyz, self.topology)
+                # create mdtrajectory for saving the data
+                if self.saveProteinOnly:
+                    trajSaveAll= md.Trajectory(xyz, self.topology)
+                    self.trajSave= md.Trajectory(trajSaveAll.xyz[:, :self.proteinEndIndex, :], self.topologyProtein)
 
-                # align frames using mdtraj
-                self.trajSave = self.trajSave.center_coordinates()
-                self.trajSave=self.trajSave.superpose(self.trajSave, 0)
-                #self.trajSave = self.trajSave.center_coordinates()
+                else:
+                    self.trajSave=md.Trajectory(xyz, self.topology)
+                    # align frames using mdtraj
+                    self.trajSave = self.trajSave.center_coordinates()
+                    self.trajSave=self.trajSave.superpose(self.trajSave, 0)
 
                 #DEBUG
                 # for i in range(len(self.trajSave)):
@@ -547,6 +581,8 @@ class Sampler():
                     # accumulate history of all points
                     xyz_history += xyz
                     potentialEnergy_history += potentialEnergyList
+                    raise NotImplementedError
+                    # this needs to be modified to save only protein
 
                 xyz_tr = xyz_history
                 trajMD=md.Trajectory(xyz_tr, self.topology)
@@ -793,13 +829,16 @@ class Sampler():
                         initialVelocities[rep] = self.integrator.vEnd
 
 
-                # creat md traj object
-                self.trajSave=md.Trajectory(xyz, self.topology)
+                # create mdtrajectory for saving the data
+                if self.saveProteinOnly:
+                    trajSaveAll= md.Trajectory(xyz, self.topology)
+                    self.trajSave= md.Trajectory(trajSaveAll.xyz[:, :self.proteinEndIndex, :], self.topologyProtein)
 
-                # align frames using mdtraj
-                self.trajSave = self.trajSave.center_coordinates()
-                self.trajSave=self.trajSave.superpose(self.trajSave, 0)
-                #self.trajSave = self.trajSave.center_coordinates()
+                else:
+                    self.trajSave=md.Trajectory(xyz, self.topology)
+                    # align frames using mdtraj
+                    self.trajSave = self.trajSave.center_coordinates()
+                    self.trajSave=self.trajSave.superpose(self.trajSave, 0)
 
                 # assign points that will be used for diffusion maps
                 if (self.local_CV == 1):

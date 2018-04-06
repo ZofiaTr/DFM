@@ -18,7 +18,7 @@ from simtk import openmm, unit
 
 class Integrator():
 
-    def __init__(self, model, gamma, temperature, temperatureAlpha, dt, massScale=100.0, gammaScale=100.0, kappaScale=100.0):
+    def __init__(self, model, gamma, temperature, dt, tamd = False, tamdparms = {}):
 
          self.model=model
          self.force_fxn=self.model.force
@@ -38,18 +38,39 @@ class Integrator():
          self.xEnd=self.model.positions
          self.vEnd=self.v0
 
-         #TAMD parameters
-         self.temperatureAlpha =temperatureAlpha
-         self.kappaAlpha=kappaScale*self.model.force_unit/self.model.x_unit
-         self.massAlpha = massScale* self.masses
-         self.gammaAlpha = gammaScale * self.gamma
-         self.kTAlpha =kB * self.temperatureAlpha
+         if tamd:
+            if temperatureAlpha in tamdparms:
+                 self.temperatureAlpha =tamdparms['temperatureAlpha']
+            else:
+                 raise "temperatureAlpha not in tamdparms"
 
-         self.z0=0.0*self.model.positions[0,0]
-         self.vz0=np.random.randn(*self.z0.shape) * np.sqrt(self.kTAlpha / self.massAlpha)#*self.model.velocity_unit
+            if massScale in tamdparms:
+                self.massScale =tamdparms['massScale']
+            else:
+                raise "massScale not in tamdparms"
 
-         self.zEnd=self.z0
-         self.vzEnd=self.vz0
+            if gammaScale in tamdparms:
+                self.gammaScale =tamdparms['gammaScale']
+            else:
+                raise "gammaScale not in tamdparms"
+
+            if kappaScale in tamdparms:
+                self.kappaScale =tamdparms['kappaScale']
+            else:
+                raise "kappaScale not in tamdparms"
+
+            self.kappaAlpha=kappaScale*self.model.force_unit/self.model.x_unit
+            self.massAlpha = massScale* self.masses
+            self.gammaAlpha = gammaScale * self.gamma
+            self.kTAlpha =kB * self.temperatureAlpha
+
+            self.z0=0.0*self.model.positions[0,0]
+            self.vz0=np.random.randn(*self.z0.shape) * np.sqrt(self.kTAlpha / self.massAlpha)#*self.model.velocity_unit
+
+            self.zEnd=self.z0
+            self.vzEnd=self.vz0
+
+        ##################################
 
          self.ndof= 3.0*self.model.system.getNumParticles() #
 
@@ -57,12 +78,10 @@ class Integrator():
          self.kineticTemperature=Averages.Average(kinTemp)
          self.kineticTemperature.addSample(kinTemp)
 
-
          print(self.kineticTemperature.getAverage())
 
          # Create a BAOAB integrator
          self.langevin_integrator = openmmtools.integrators.LangevinIntegrator(temperature=self.temperature, collision_rate=self.gamma, timestep=self.dt, splitting='V R O R V')
-
 
          # Create a Context for integration
          self.context = openmm.Context(self.model.system, self.langevin_integrator)
