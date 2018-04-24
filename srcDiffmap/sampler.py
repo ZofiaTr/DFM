@@ -112,7 +112,7 @@ class Sampler():
         self.saveProteinOnly = True
         if self.saveProteinOnly:
             try:
-                proteinPDBFile = self.params['proteinPDBFile']
+                self.proteinPDBFile = self.params['proteinPDBFile']
             except:
                 raise KeyError
 
@@ -121,7 +121,7 @@ class Sampler():
             except:
                 raise KeyError
 
-            self.topologyProtein = md.load(proteinPDBFile).topology
+            self.topologyProtein = md.load(self.proteinPDBFile).topology
 
 
             self.trajSave= md.Trajectory(self.model.positions.value_in_unit(self.model.x_unit)[ :self.proteinEndIndex, :], self.topologyProtein)
@@ -573,6 +573,7 @@ class Sampler():
                 #------ reshape data ------------------------------
 
                 # assign points that will be used for diffusion maps
+
                 if (self.local_CV == 1):
                     #  history is only from the previous iteration
                     xyz_history = xyz
@@ -581,11 +582,20 @@ class Sampler():
                     # accumulate history of all points
                     xyz_history += xyz
                     potentialEnergy_history += potentialEnergyList
-                    raise NotImplementedError
+                    #raise NotImplementedError
                     # this needs to be modified to save only protein
 
                 xyz_tr = xyz_history
-                trajMD=md.Trajectory(xyz_tr, self.topology)
+                # save only protein
+                if self.saveProteinOnly:
+
+                    trajMDall= md.Trajectory(xyz_tr, self.topology)
+                    trajMD= md.Trajectory(trajSaveAll.xyz[:, :self.proteinEndIndex, :], self.topologyProtein)
+                else:
+                    trajMD=md.Trajectory(xyz_tr, self.topology)
+
+                # keep track of indices for striding purpose
+                trajectory_index = np.arange(trajMD.xyz.shape[0])
 
                 if self.saveEnergy ==1:
                     potentialEnergyShort=potentialEnergy_history
@@ -622,6 +632,10 @@ class Sampler():
                         print('Current shape of traj is '+repr(trajMD.xyz.shape))
                         while(len(trajMD)>maxDataLengthLoc):
                             trajMD=trajMD[::2]
+
+                            # stride also trajectory index
+                            trajectory_index = trajectory_index[::2]
+
                         if self.saveEnergy ==1:
                             while(len(potentialEnergyShort)>maxDataLengthLoc):
                                 potentialEnergyShort = potentialEnergyShort[::2]
@@ -650,7 +664,14 @@ class Sampler():
                         else:
                             nrFEV = self.numberOfDCs
 
-                        dominantEV, q, qEstimated, potEn, kernelDiff, eigenvalues=dimred.dominantEigenvectorDiffusionMap(traj, self.epsilon, self, self.kT, self.method, nrOfFirstEigenVectors=nrFEV+1, energy = potentialEnergyShort,  metric=self.diffmap_metric)
+                        if self.saveProteinOnly:
+                            positions_shape = np.array((self.proteinEndIndex,self.model.positions.shape[-1]))
+                            topology = self.topologyProtein
+                        else:
+                            positions_shape=None
+                            topology = None
+
+                        dominantEV, q, qEstimated, potEn, kernelDiff, eigenvalues=dimred.dominantEigenvectorDiffusionMap(traj, self.epsilon, self, self.kT, self.method, nrOfFirstEigenVectors=nrFEV+1, energy = potentialEnergyShort,  metric=self.diffmap_metric,positions_shape = positions_shape, topology=topology, pdbfile = self.proteinPDBFile)
                         # skip the zeroth eigenvector
                         V1 = dominantEV[:,1:]
 
@@ -714,10 +735,24 @@ class Sampler():
                         idx_corner.append(np.argmax(dist))
 
                     ####
+                    if self.saveProteinOnly:
+                        trajAll =  trajMDall.xyz.reshape((trajMDall.xyz.shape[0], trajMDall.xyz.shape[1]*trajMDall.xyz.shape[2]))
 
-                    tmp=traj[idx_corner].reshape(np.append(nrRep, self.trajSave.xyz[0].shape))
+                        tmp=trajAll[trajectory_index[idx_corner]].reshape(np.append(nrRep, trajMDall.xyz[0].shape))
+
+                    else:
+                        tmp=traj[idx_corner].reshape(np.append(nrRep, self.trajSave.xyz[0].shape))
+                    # print(idx_corner)
+                    # print(trajectory_index[idx_corner].astype(int))
+
+                    #tmp2 = xyz_tr[trajectory_index[idx_corner]]
+
+
                     frontierPoint = tmp
                     frontierPointSave = tmp
+
+                    print("frontierpoints have shape:")
+                    print(np.asarray(frontierPoint).shape)
 
                     #every replica can get different initial condition
                     initialPositions=[frontierPoint[rep]* self.integrator.model.x_unit for rep in range(0,nrRep)]
@@ -728,10 +763,14 @@ class Sampler():
                 print('Saving frontier points')
                 frontierPointMDTraj.save(self.savingFolderFrontierPoints+'/frontierPoints_at_iteration_'+repr(it)+'.h5')
 
-                if self.saveEigenvectors==1:
+                if self.saveEigenvectors==1 :
+
                     trajShort=traj.reshape((traj.shape[0],self.trajSave.xyz.shape[1],self.trajSave.xyz.shape[2]))
-                    print('Shape of traj '+repr(traj.shape))
-                    self.trajEVSave=md.Trajectory(trajShort, self.topology)
+                    print('Shape of traj '+repr(trajShort.shape))
+                    if self.saveProteinOnly:
+                        self.trajEVSave=md.Trajectory(trajShort, self.topologyProtein)
+                    else:
+                        self.trajEVSave=md.Trajectory(trajShort, self.topology)
                     print('Saving traj used for diffmaps to file')
                     self.trajEVSave.save(self.savingFolderEigenvectors+'traj_'+repr(it)+'.h5')
                     print('Saving EV to file')

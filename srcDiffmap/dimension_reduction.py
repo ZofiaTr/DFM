@@ -11,7 +11,7 @@ import mdtraj as md
 ###########################################################
 
 
-def dominantEigenvectorDiffusionMap(tr, epsilon, sampler, T, method, nrOfFirstEigenVectors=2, numberOfNeighborsPotential=1, energy = None,  metric='euclidean'):
+def dominantEigenvectorDiffusionMap(tr, epsilon, sampler, T, method, nrOfFirstEigenVectors=2, numberOfNeighborsPotential=1, energy = None,  metric='euclidean', positions_shape = None, topology=None, pdbfile = None):
         """
         Dimension reduction - compute diffusion map from the trajectory
         Parameters
@@ -19,6 +19,8 @@ def dominantEigenvectorDiffusionMap(tr, epsilon, sampler, T, method, nrOfFirstEi
         tr : ndarray of shape n x DOF where n is number of time steps / frames and DOF is number of particles times space dimension
         nrOfFirstEigenVectors : number of first eigenvectors, without the first one. Carefull, pydiffmap takes nrOfFirstEigenVectors and resurns matrix with nrOfFirstEigenVectors+1 columns
 
+        positions_shape : (2,1) array (number of atomes x space dimension) to explicitely access the shape of the molecule. if none, then the initial positions from model.testsystems will be called.
+        topology : if none, then take sampler.model.topology.
         returns
         ------------
         v1 : ndarray of shape (len(tr), nrOfFirstEigenVectors), eigenvectors from diffusion maps
@@ -33,8 +35,11 @@ def dominantEigenvectorDiffusionMap(tr, epsilon, sampler, T, method, nrOfFirstEi
         chosenmetric = metric
         print('Chosen metric for diffusionmap is '+str(chosenmetric))
 
-        X_FT =tr.reshape(tr.shape[0],sampler.model.testsystem.positions.shape[0],sampler.model.testsystem.positions.shape[1] )
-        tr = align_with_mdanalysis(X_FT, sampler);
+        if positions_shape is not None:
+            X_FT =tr.reshape(tr.shape[0],positions_shape[0],positions_shape[1] )
+        else:
+            X_FT =tr.reshape(tr.shape[0],sampler.model.testsystem.positions.shape[0],sampler.model.testsystem.positions.shape[1] )
+        tr = align_with_mdanalysis(X_FT, sampler, pdbfile=pdbfile);
         tr = tr.reshape(X_FT.shape[0], X_FT.shape[1]*X_FT.shape[2])
 
         E=[]
@@ -86,8 +91,16 @@ def dominantEigenvectorDiffusionMap(tr, epsilon, sampler, T, method, nrOfFirstEi
 
                 print('Epsilon cant be automatic if metric is rmsd. Setting epsilon = 0.1.')
                 epsilon = 0.1
-                trxyz=tr.reshape(tr.shape[0], sampler.model.testsystem.positions.shape[0],sampler.model.testsystem.positions.shape[1])
-                traj = md.Trajectory(trxyz, sampler.model.testsystem.topology)
+
+                if positions_shape is not None:
+                    trxyz =tr.reshape(tr.shape[0],positions_shape[0],positions_shape[1] )
+                else:
+                    trxyz =tr.reshape(tr.shape[0],sampler.model.testsystem.positions.shape[0],sampler.model.testsystem.positions.shape[1] )
+                #trxyz=tr.reshape(tr.shape[0], sampler.model.testsystem.positions.shape[0],sampler.model.testsystem.positions.shape[1])
+                if topology is None:
+                    traj = md.Trajectory(trxyz, sampler.model.testsystem.topology)
+                else:
+                    traj = md.Trajectory(trxyz, topology)
 
                 indptr = [0]
                 indices = []
@@ -238,14 +251,19 @@ def computeEnergy(X_reshaped, smpl, modelShape = False):
 
 
 #from MDAnalysis.tests.datafiles import PSF, DCD, PDB_small
-def align_with_mdanalysis(X_FT, smpl):
+def align_with_mdanalysis(X_FT, smpl, pdbfile = None):
 
     import MDAnalysis as mda
     from MDAnalysis.analysis import align
     from MDAnalysis.analysis.rms import rmsd
 
-    trj = mda.Universe(smpl.model.modelName+'.pdb', X_FT)
-    ref = mda.Universe(smpl.model.modelName+'.pdb')
+    if pdbfile is None:
+        name = smpl.model.modelName+'.pdb'
+    else:
+        name = pdbfile
+
+    trj = mda.Universe(name, X_FT)
+    ref = mda.Universe(name)
     # trj = mda.Universe('/Users/zofia/github/DFM/alanine.xyz', X_FT)
     # print(trj.trajectory)
     # ref = mda.Universe('/Users/zofia/github/DFM/alanine.xyz')#, X_FT[0,:,:])
