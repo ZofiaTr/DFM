@@ -16,7 +16,7 @@ import scipy.spatial.distance as scidist
 import time
 import mdtraj as md
 
-maxDataLength=5000
+maxDataLength=2000
 everyN=1
 writingEveryNSteps=1
 savingEveryNIterations=100
@@ -44,6 +44,7 @@ class Sampler():
 
         #set the temperature here - then passed to the integrator
         self.kT=self.integrator.kT
+        self.increasedTemperature = 500
 
         self.maxDataLength=maxDataLength
 
@@ -477,7 +478,7 @@ class Sampler():
                     if(it>0):
 
                         T = self.kT/ self.model.kB_const
-                        self.integrator.temperature = T+200  * self.model.temperature_unit
+                        self.integrator.temperature = T+ self.increasedTemperature  * self.model.temperature_unit
                         print("Changing temperature to T="+repr(self.integrator.temperature))
 
                         print('Simulating at higher temperature'+repr(self.integrator.temperature))
@@ -758,8 +759,11 @@ class Sampler():
                     initialPositions=[frontierPoint[rep]* self.integrator.model.x_unit for rep in range(0,nrRep)]
 
                     # ** #################################################
-
-                frontierPointMDTraj=md.Trajectory(frontierPoint, self.topology)
+                if self.saveProteinOnly:
+                    frontierPointMDTrajAll=md.Trajectory(frontierPoint, self.topology)
+                    frontierPointMDTraj=md.Trajectory(frontierPointMDTrajAll.xyz[:,:self.proteinEndIndex,:], self.topologyProtein)
+                else:
+                    frontierPointMDTraj=md.Trajectory(frontierPoint, self.topology)
                 print('Saving frontier points')
                 frontierPointMDTraj.save(self.savingFolderFrontierPoints+'/frontierPoints_at_iteration_'+repr(it)+'.h5')
 
