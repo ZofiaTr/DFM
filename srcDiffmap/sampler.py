@@ -17,7 +17,7 @@ import time
 import mdtraj as md
 
 maxDataLength=2000
-everyN=1
+
 writingEveryNSteps=1
 savingEveryNIterations=100
 adjustEpsilon=1
@@ -29,7 +29,7 @@ class Sampler():
     """
 
 
-    def __init__(self, model, integrator, algorithm=0, numberOfDCs = 2, params={}, diffusionMapMetric='euclidean', dataFileName='/Data', dataFrontierPointsName = '/FrontierPoints', dataEigenVectorsName='/Eigenvectors', dataEnergyName='/Energies', diffusionMap='Diffmap'):
+    def __init__(self, model, integrator, algorithm=0, params={}):
 
         self.model=model
         self.algorithm=algorithm
@@ -37,10 +37,55 @@ class Sampler():
 
         self.params = params
 
-        self.diffmap_metric = diffusionMapMetric # dm.myRMSDmetricPrecentered
+         # dm.myRMSDmetricPrecentered
+        if 'diffmap_metric' in self.params:
+            self.diffmap_metric = self.params['diffusionMapMetric']
+        else:
+            self.diffmap_metric = 'euclidean'
 
         # number of diffusion coordinates to be computed in diffusion maps
-        self.numberOfDCs = numberOfDCs
+        if 'numberOfDCs' in self.params:
+            self.numberOfDCs = self.params['numberOfDCs']
+        else:
+            self.numberOfDCs = 2
+
+        if 'dataFileName' in self.params:
+            self.dataFileName = self.params['dataFileName']
+        else:
+            self.dataFileName = '/Data'
+
+        if 'dataFrontierPointsName' in self.params:
+            self.dataFrontierPointsName = self.params['dataFrontierPointsName']
+        else:
+            self.dataFrontierPointsName = '/FrontierPoints'
+
+        if 'dataEigenVectorsName' in self.params:
+            self.dataEigenVectorsName = self.params['dataEigenVectorsName']
+        else:
+            self.dataEigenVectorsName = '/Eigenvectors'
+
+        if 'dataEnergyName' in self.params:
+            self.dataEnergyName = self.params['dataEnergyName']
+        else:
+            self.dataEnergyName = '/Energies'
+
+        if 'diffusionMap' in self.params:
+            self.method = self.params['diffusionMap']
+        else:
+            self.method = 'Diffmap'
+
+        if 'epsilon' in self.params:
+            self.epsilon = self.params['epsilon']
+        else:
+            self.epsilon = 'bgh'
+
+        if self.epsilon == 0:
+            self.epsilon = 'bgh'
+
+        if self.diffmap_metric == 'rmsd':
+            self.epsilon = 0.1
+            print('If the metric is rmsd, epsilon must have numeric value. Changing to 0.1')
+
 
         #set the temperature here - then passed to the integrator
         self.kT=self.integrator.kT
@@ -53,21 +98,13 @@ class Sampler():
         self.dim=3
         self.dimCV=1
 
-        self.method=diffusionMap #'TMDiffmap' or 'Diffmap'
-
-        #diffusion maps constants
-        self.epsilon='bgh' #0.1 #0.05
-        if self.diffmap_metric == 'rmsd':
-            self.epsilon = 0.1
-            print('If the metric is rmsd, epsilon must have numeric value.')
-        #self.epsilon_Max=self.epsilon* (2.0**4)
 
         #linear approximation
         self.numberOfLandmarks=10
 
         self.nrDecorrSteps=1
 
-        self.modNr=10
+        self.modNr=100
 
         self.save_to_pdb = False
 
@@ -87,7 +124,6 @@ class Sampler():
         # note that for the local algo: vanilla diffusion map should provide good approximation, since the
         # quasi-stationary distribution is assumed to be unbiased
         self.local_CV = 0
-
 
         if self.algorithm==0:
             self.algorithmName='std'
@@ -111,6 +147,7 @@ class Sampler():
         self.topology = md.Topology().from_openmm(self.model.testsystem.topology)
 
         self.saveProteinOnly = True
+
         if self.saveProteinOnly:
             try:
                 self.proteinPDBFile = self.params['proteinPDBFile']
@@ -131,19 +168,20 @@ class Sampler():
             self.trajSave = md.Trajectory(self.model.positions.value_in_unit(self.model.x_unit), self.topology)
             print("Saving the whole system : " + repr(self.trajSave.xyz.shape))
 
-        self.savingFolder=dataFileName+'/'+self.model.modelName
-        self.savingFolderEnergy=dataEnergyName
-        self.savingFolderFrontierPoints = dataFrontierPointsName
-        self.savingFolderEigenvectors = dataEigenVectorsName
+        self.savingFolder=self.dataFileName+'/'+self.model.modelName
+        self.savingFolderEnergy=self.dataEnergyName
+        self.savingFolderFrontierPoints = self.dataFrontierPointsName
+        self.savingFolderEigenvectors = self.dataEigenVectorsName
 
         self.saveEigenvectors=1
         self.saveEnergy=1
 
-    def resetInitialConditions(self):
+    def resetInitialConditions(self, tamd=False):
             self.integrator.x0=self.integrator.xEnd
             self.integrator.v0=self.integrator.vEnd
-            self.integrator.z0=self.integrator.zEnd
-            self.integrator.vz0=self.integrator.vzEnd
+            if tamd:
+                self.integrator.z0=self.integrator.zEnd
+                self.integrator.vz0=self.integrator.vzEnd
             self.integrator.kineticTemperature.clear()
 
     def run(self, nrSteps, nrIterations, nrRep):
@@ -213,7 +251,6 @@ class Sampler():
                     print('Iteration '+ repr(it))
                     print('Kinetic Temperature is '+str(self.integrator.kineticTemperature.getAverage()))
 
-
                     if(it>0):
                         t_left=(self.timeAv.getAverage())*(nrIterations-it)
                         print(time.strftime("Time left %H:%M:%S", time.gmtime(t_left)))
@@ -266,6 +303,7 @@ class Sampler():
                     # align frames using mdtraj
                     self.trajSave = self.trajSave.center_coordinates()
                     self.trajSave=self.trajSave.superpose(self.trajSave, 0)
+
 
 
                 print('Saving traj to file')
@@ -592,8 +630,11 @@ class Sampler():
 
                     trajMDall= md.Trajectory(xyz_tr, self.topology)
                     trajMD= md.Trajectory(trajSaveAll.xyz[:, :self.proteinEndIndex, :], self.topologyProtein)
+
                 else:
                     trajMD=md.Trajectory(xyz_tr, self.topology)
+
+
 
                 # keep track of indices for striding purpose
                 trajectory_index = np.arange(trajMD.xyz.shape[0])
